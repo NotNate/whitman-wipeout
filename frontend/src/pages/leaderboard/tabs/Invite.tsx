@@ -1,20 +1,18 @@
 import { useEffect, useState } from "react";
 import { Avatar, Badge, Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
-import { useRecoilValue } from "recoil";
-import { gameInfoAtom } from "global/user-state";
 import {inviteTeam, getInvites, getInvitedBy} from "api/game/player";
 import { fetchLeaderboard } from "api/game/target";
 import { LeaderboardPlayerInfo } from "shared/api/player";
+import { GameInfo } from "shared/api/game";
 
-function Invite() {
-  const gameInfo = useRecoilValue(gameInfoAtom);
+function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   const [players, setPlayers] = useState<LeaderboardPlayerInfo[]>([]);
   const [invites, setInvites] = useState<string[]>([]);
   const [invitedBy, setInvitedBy] = useState<string[]>([]);
 
   useEffect(() => {
     const loadPlayers = async () => {
-      const allPlayers = await fetchLeaderboard(gameInfo.gameId); // Fetch all players in the game
+      const allPlayers = await fetchLeaderboard(); // Fetch all players in the game
       const filteredPlayers = allPlayers.filter(
         (player) => !player.teamPartnerId // Exclude players who already have a partner
       );

@@ -111,26 +111,26 @@ export class TargetService {
     // Get all alive players
     const players = await this.plyr.findByGameAndStatus(gameId);
 
-    const teams = new Map<string, MongoId[]>(); // Map to group players into teams
-    const playersToDisqualify: MongoId[] = []; // List to keep track of solo players
+    const teams = new Map<string, string[]>(); // Map to group players into teams
+    const playersToDisqualify: string[] = []; // List to keep track of solo players
 
     players.forEach(player => {
         if (!player.teamPartnerId) {
             // Player without a partner is marked for disqualification
-            playersToDisqualify.push(player.id);
+            playersToDisqualify.push(player.id.toString());
         } else {
             const partnerId = player.teamPartnerId.toString();
             if (teams.has(partnerId)) {
-                teams.get(partnerId)!.push(player.id);
+                teams.get(partnerId)!.push(player.id.toString());
             } else {
-                teams.set(player.id.toString(), [player.id]);
+                teams.set(player.id.toString(), [player.id.toString()]);
             }
         }
     });
 
     // Disqualify solo players
     for (const playerId of playersToDisqualify) {
-        const player = await this.plyr.findById(playerId);
+        const player = await this.plyr.findById(new MongoId(playerId));
         player.status = PlayerStatus.DISQUALIFIED;
         await player.save();
     }
