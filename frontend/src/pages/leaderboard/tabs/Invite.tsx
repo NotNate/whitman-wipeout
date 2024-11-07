@@ -21,12 +21,12 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
 
     const loadInvites = async () => {
       const inviteList = await getInvites(gameInfo.gameId);
-      setInvites(inviteList.map((id) => id.toString())); // Convert MongoId to string for comparison
+      setInvites(inviteList.map((id: string) => id.toString())); // Convert MongoId to string for comparison
     };
 
     const loadInvitedBy = async () => {
       const invitedByList = await getInvitedBy(gameInfo.gameId);
-      setInvitedBy(invitedByList.map((id) => id.toString())); // Convert MongoId to string for comparison
+      setInvitedBy(invitedByList.map((id: string) => id.toString())); // Convert MongoId to string for comparison
     };
 
     loadPlayers();

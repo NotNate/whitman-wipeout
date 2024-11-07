@@ -44,8 +44,8 @@ export class PlayerController {
   ) {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
-    await this.plyr.getInvites(userId, gameId);
-    return { msg: 'success' };
+    const invites = await this.plyr.getInvites(userId, gameId);
+    return invites;
   }
 
   @Post('getInvitedBy')
@@ -56,7 +56,7 @@ export class PlayerController {
   ) {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
-    await this.plyr.getInvitedBy(userId, gameId);
-    return { msg: 'success' };
+    const invitedBy = await this.plyr.getInvitedBy(userId, gameId);
+    return invitedBy;
   }
 }

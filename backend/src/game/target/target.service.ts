@@ -408,6 +408,7 @@ async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId:
         : undefined;
       const info: LeaderboardPlayerInfo = {
         playerId: p.id,
+        teamParterId: p.teamPartnerId,
         name: `${user.firstName} ${user.surname}`,
         kills: killCounts[p.id] ?? 0,
         alive: p.status === PlayerStatus.ALIVE,
