@@ -48,6 +48,16 @@ export const killTarget = async (targetId: string) => {
   );
 };
 
+/** ADMIN ONLY: Mark a player as safe. */
+export const makePlayerSafe = async (playerId: string) => {
+  const info = getRecoil(gameInfoAtom);
+  if (!info) return [];
+
+  await authPost<any[]>(
+    `/game/target/safe?gameId=${info.gameId}&playerId=${playerId}`
+  );
+};
+
 /** ADMIN ONLY: Expire all past targets and create new matchings for alive players. */
 export const matchTargets = async () => {
   const info = getRecoil(gameInfoAtom);

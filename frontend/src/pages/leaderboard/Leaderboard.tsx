@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import {
   Avatar,
+  Badge,
   Box,
   Card,
   HStack,
@@ -30,7 +31,7 @@ import { EventCountdown } from "components/Countdown";
 import AllTargets from "./admin/AllTargets";
 import TargetAssignment from "./tabs/TargetAssignment";
 import Rules from "./tabs/Rules";
-import Safety from "./tabs/Safety";
+import SafetyList from "./admin/SafetyList";
 import { GameInfo } from "shared/api/game";
 
 /**
@@ -62,7 +63,7 @@ function Leaderboard() {
       <TabList>
         <Tab>Leaderboard</Tab>
         <Tab>All Targets</Tab>
-        {/* <Tab>Safety</Tab> */}
+        <Tab>Safety List</Tab>
         <Tab>Rules</Tab>
       </TabList>
       <TabPanels>
@@ -72,11 +73,11 @@ function Leaderboard() {
         <TabPanel>
           <AllTargets />
         </TabPanel>
-        {/* <TabPanel>
+          <TabPanel>
           <Stack alignItems="center" width="100%">
-            {gameInfo && <Safety gameInfo={gameInfo} />}
+            <SafetyList />
           </Stack>
-        </TabPanel> */}
+          </TabPanel>
         <TabPanel>
           <Stack alignItems="center" width="100%">
             <Rules />
@@ -169,27 +170,42 @@ function LeaderboardItem({
       width="70%"
       minWidth="400px"
       key={info.playerId}
-      sx={{ backgroundColor: info.alive ? "white" : "blue.200" }}
+      sx={{ backgroundColor: info.alive ? "white" : info.safe ? "green.200" : "red.200" }}
     >
-      <HStack padding={4}>
-        <Avatar name={info.name} />
-        <Stack>
-          <Text sx={info.alive ? {} : { textDecorationLine: "line-through" }}>
-            {ranking}: {info.name}
-          </Text>
-          <Box mt="-4">
-            <Text as="span" fontWeight="bold">
-              Eliminations:
+      <HStack padding={4} justifyContent="space-between">
+        <HStack>
+          <Avatar name={info.name} />
+          <Stack>
+            <Text sx={info.alive || info.safe ? {} : { textDecorationLine: "line-through" }}>
+              {ranking}: {info.name}
             </Text>
-            <Text as="span"> {info.kills}</Text>
-          </Box>
-          {!info.alive && (
-            <Text>Eliminated by {info.killedBy ?? "a magical force"}</Text>
-          )}
-        </Stack>
+            <Box mt="-4">
+              <Text as="span" fontWeight="bold">
+                Eliminations:
+              </Text>
+              <Text as="span"> {info.kills}</Text>
+            </Box>
+            {(!info.alive && !info.safe) && (
+              <Text>Eliminated by {info.killedBy ?? "a magical force"}</Text>
+            )}
+          </Stack>
+        </HStack>
+      {info.safe && (
+        <Badge
+          colorScheme="green"
+          position="absolute"
+          top="2"
+          right="2"
+          borderRadius="full"
+          px="2"
+          fontSize="0.8em"
+        >
+          Safe
+        </Badge>
+      )}
       </HStack>
     </Card>
-  );
+  );  
 }
 
 export default Leaderboard;

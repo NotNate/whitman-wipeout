@@ -13,6 +13,12 @@ export enum PlayerStatus {
    * This player has been killed and is no longer in the game.
    * */
   KILLED = 'KILLED',
+
+  /**
+   * This player has been marked safe and is no longer killable by during the day.
+   */
+  SAFE = 'SAFE',
+
   /**
    * This player was manually disqualified for breaking the rules
    * */

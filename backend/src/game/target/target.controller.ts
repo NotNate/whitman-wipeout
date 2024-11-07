@@ -70,4 +70,18 @@ export class TargetController {
     const data = await this.trgt.killTarget(userId, gameId, targetId);
     return data;
   }
+
+  @Post('safe')
+  @UseGuards(JwtAuthGuard)
+  async makePlayerSafe(
+    @Req() req: Request,
+    @QueryRequired('gameId') gameIdQuery: string,
+    @QueryRequired('playerId') playerIdQuery: string,
+  ) {
+    const gameId = new MongoId(gameIdQuery);
+    const playerId = new MongoId(playerIdQuery);
+    const userId = getUserIdFromRequest(req);
+    const data = await this.trgt.makePlayerSafe(userId, gameId, playerId);
+    return data;
+  }
 }

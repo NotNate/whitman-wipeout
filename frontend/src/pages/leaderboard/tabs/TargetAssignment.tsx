@@ -39,12 +39,17 @@ function TargetAssignment() {
     >
       <Box>
         {!error ? (
-          <>
+            <>
             <Text as="span" fontWeight="bold">
               Your target:{" "}
             </Text>
             <Text as="span"> {target?.name} </Text>
-          </>
+            {target?.safe && (
+              <Text color="green.500" fontWeight="bold" mt={2}>
+              Your target ({target?.name}) is safe right now
+              </Text>
+            )}
+            </>
         ) : (
           <>
             <Text as="span" fontWeight="bold">

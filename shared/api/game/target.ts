@@ -1,5 +1,6 @@
 export type TargetInfo = {
   name: string;
+  safe: boolean;
 };
 
 export type DetailedTargetInfo = {

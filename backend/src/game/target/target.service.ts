@@ -86,10 +86,12 @@ export class TargetService {
     const target = await this.findByGameAndPlayer(player.gameId, playerId);
     const targetPlayer = await this.plyr.findById(target.targetId);
     const targetUser = await this.usr.findById(targetPlayer.userId);
+
     return {
       name: `${targetUser.firstName} ${targetUser.surname}`,
+      safe: targetPlayer.status === PlayerStatus.SAFE
     };
-  }
+}
 
   /**
    * Create targets for all alive players in a game. Expire all pending targets,
@@ -183,6 +185,33 @@ export class TargetService {
     newTarget.playerId = playerId;
     newTarget.targetId = killedTarget.targetId;
     newTarget.save();
+  }
+
+  /**
+   * Mark the player status of someone as safe, or make the unsafe if already marked safe.
+   * @param gameId The game in question
+   * @param userId The user of this function, in this case, an admin
+   * @param playerId The player in the game
+   */
+  async makePlayerSafe(userId: MongoId, gameId: MongoId, playerId: MongoId) {
+    // Grab the game to make sure it exists
+    await this.gme.findById(gameId);
+
+    // Only allow admins to conduct this action
+    const role = await this.plyr.getRole(gameId, userId);
+    if (role !== PlayerRole.ADMIN) {
+      throw new PlayerRoleUnauthorizedException(userId, role);
+    }
+
+    const player = await this.plyr.findById(playerId);
+
+    // Make sure the player is alive
+    if (player.status !== PlayerStatus.ALIVE && player.status !== PlayerStatus.SAFE) {
+      throw new PlayerStatusNotValidException(playerId, player.status);
+    }
+
+    player.status = player.status === PlayerStatus.ALIVE ? PlayerStatus.SAFE : PlayerStatus.ALIVE;
+    player.save();
   }
 
   async fetchTargets(userId: MongoId, gameId: MongoId) {
@@ -292,6 +321,7 @@ export class TargetService {
         name: `${user.firstName} ${user.surname}`,
         kills: killCounts[p.id] ?? 0,
         alive: p.status === PlayerStatus.ALIVE,
+        safe: p.status === PlayerStatus.SAFE,
         killedBy: killer ? `${killer.firstName} ${killer.surname}` : undefined,
       };
 
