@@ -20,12 +20,12 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     };
 
     const loadInvites = async () => {
-      const inviteList = await getInvites(gameInfo.userId, gameInfo.gameId);
+      const inviteList = await getInvites(gameInfo.gameId);
       setInvites(inviteList.map((id) => id.toString())); // Convert MongoId to string for comparison
     };
 
     const loadInvitedBy = async () => {
-      const invitedByList = await getInvitedBy(gameInfo.userId, gameInfo.gameId);
+      const invitedByList = await getInvitedBy(gameInfo.gameId);
       setInvitedBy(invitedByList.map((id) => id.toString())); // Convert MongoId to string for comparison
     };
 
@@ -35,7 +35,7 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   }, [gameInfo.gameId, gameInfo.userId]);
 
   const handleInvite = async (playerId: string) => {
-    await inviteTeam(gameInfo.userId, gameInfo.gameId, playerId);
+    await inviteTeam(gameInfo.gameId, playerId);
     setInvites([...invites, playerId]);
   };
 

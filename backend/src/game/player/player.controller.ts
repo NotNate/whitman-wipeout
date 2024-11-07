@@ -41,11 +41,9 @@ export class PlayerController {
   async getInvites(
     @Req() req: Request,
     @QueryRequired('gameId') gameIdQuery: string,
-    @QueryRequired('teamPartnerId') teamPartnerIdQuery: string,
   ) {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
-    const teamPartnerId = new MongoId(teamPartnerIdQuery);
     await this.plyr.getInvites(userId, gameId);
     return { msg: 'success' };
   }
@@ -55,11 +53,9 @@ export class PlayerController {
   async getInvitedBy(
     @Req() req: Request,
     @QueryRequired('gameId') gameIdQuery: string,
-    @QueryRequired('teamPartnerId') teamPartnerIdQuery: string,
   ) {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
-    const teamPartnerId = new MongoId(teamPartnerIdQuery);
     await this.plyr.getInvitedBy(userId, gameId);
     return { msg: 'success' };
   }
