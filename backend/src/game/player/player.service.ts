@@ -114,4 +114,14 @@ export class PlayerService {
   async findByGame(gameId: MongoId): Promise<Player[]> {
     return await this.model.find({ gameId: gameId }).exec();
   }
+
+  async inviteTeam(
+    userId: MongoId,
+    gameId: MongoId,
+    teamPartnerId: MongoId,
+  ) {
+    // add the inviter to the teamPartner's list of people who have invited them
+    const teamPartner = await this.find(teamPartnerId, gameId);
+    teamPartner.invitedBy.push(userId);
+  }
 }

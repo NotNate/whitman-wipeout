@@ -21,4 +21,18 @@ export class PlayerController {
     await this.plyr.register(userId, gameId);
     return { msg: 'success' };
   }
+
+  @Post('invite-team')
+  @UseGuards(JwtAuthGuard)
+  async inviteTeam(
+    @Req() req: Request,
+    @QueryRequired('gameId') gameIdQuery: string,
+    @QueryRequired('teamPartnerId') teamPartnerIdQuery: string,
+  ) {
+    const userId = getUserIdFromRequest(req);
+    const gameId = new MongoId(gameIdQuery);
+    const teamPartnerId = new MongoId(teamPartnerIdQuery);
+    await this.plyr.inviteTeam(userId, gameId, teamPartnerId);
+    return { msg: 'success' };
+  }
 }
