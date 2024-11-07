@@ -32,7 +32,7 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     loadPlayers();
     loadInvites();
     loadInvitedBy();
-  }, [gameInfo.gameId, gameInfo.userId]);
+  }, [gameInfo.gameId]);
 
   const handleInvite = async (playerId: string) => {
     await inviteTeam(gameInfo.gameId, playerId);
