@@ -65,6 +65,12 @@ export class Player extends mongoose.Document<mongoose.Schema.Types.ObjectId> {
   invitedBy: MongoId[];
 
   /**
+   * The list of player IDs that this player has invited to their team.
+   */
+  @Prop({ type: [mongoose.Schema.Types.ObjectId], required: false })
+  invited: MongoId[];
+
+  /**
    * The game that this user is a part of.
    */
   @Prop({ type: String, enum: PlayerStatus, default: PlayerStatus.ALIVE })

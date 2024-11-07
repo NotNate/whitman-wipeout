@@ -123,5 +123,36 @@ export class PlayerService {
     // add the inviter to the teamPartner's list of people who have invited them
     const teamPartner = await this.find(teamPartnerId, gameId);
     teamPartner.invitedBy.push(userId);
+    teamPartner.save();
+
+    // add the teamPartner to the inviter's list of people they have invited
+    const inviter = await this.find(userId, gameId);
+    inviter.invited.push(teamPartnerId);
+    inviter.save();
   }
+
+  async getInvites(userId: MongoId, gameId: MongoId): Promise<MongoId[]> {
+    const player = await this.find(userId, gameId);
+    if (player.userId != userId) {
+      const role = await this.getRole(gameId, userId);
+      if (role != PlayerRole.ADMIN) {
+        return [];
+      }
+    }
+    return player.invited;
+  }
+
+  async getInvitedBy(userId: MongoId, gameId: MongoId): Promise<MongoId[]> {
+    // only return the list if the player is requesting their own list, or if they are an admin
+    const player = await this.find(userId, gameId);
+    if (player.userId != userId) {
+      const role = await this.getRole(gameId, userId);
+      if (role != PlayerRole.ADMIN) {
+        return [];
+      }
+    }
+    return player.invitedBy;
+  }
+
+  // TODO: Implement acceptInvite and rejectInvite
 }

@@ -22,7 +22,7 @@ export class PlayerController {
     return { msg: 'success' };
   }
 
-  @Post('invite-team')
+  @Post('inviteTeam')
   @UseGuards(JwtAuthGuard)
   async inviteTeam(
     @Req() req: Request,
@@ -33,6 +33,34 @@ export class PlayerController {
     const gameId = new MongoId(gameIdQuery);
     const teamPartnerId = new MongoId(teamPartnerIdQuery);
     await this.plyr.inviteTeam(userId, gameId, teamPartnerId);
+    return { msg: 'success' };
+  }
+
+  @Post('getInvites')
+  @UseGuards(JwtAuthGuard)
+  async getInvites(
+    @Req() req: Request,
+    @QueryRequired('gameId') gameIdQuery: string,
+    @QueryRequired('teamPartnerId') teamPartnerIdQuery: string,
+  ) {
+    const userId = getUserIdFromRequest(req);
+    const gameId = new MongoId(gameIdQuery);
+    const teamPartnerId = new MongoId(teamPartnerIdQuery);
+    await this.plyr.getInvites(userId, gameId);
+    return { msg: 'success' };
+  }
+
+  @Post('getInvitedBy')
+  @UseGuards(JwtAuthGuard)
+  async getInvitedBy(
+    @Req() req: Request,
+    @QueryRequired('gameId') gameIdQuery: string,
+    @QueryRequired('teamPartnerId') teamPartnerIdQuery: string,
+  ) {
+    const userId = getUserIdFromRequest(req);
+    const gameId = new MongoId(gameIdQuery);
+    const teamPartnerId = new MongoId(teamPartnerIdQuery);
+    await this.plyr.getInvitedBy(userId, gameId);
     return { msg: 'success' };
   }
 }
