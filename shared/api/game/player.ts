@@ -1,6 +1,6 @@
 export type LeaderboardPlayerInfo = {
   playerId: string;
-  teamParterId: string;
+  teamPartnerId: string;
   name: string;
   kills: number;
   alive: boolean;
