@@ -46,7 +46,7 @@ function TargetAssignment() {
             <Text as="span"> {target?.name} </Text>
             {target?.safe && (
               <Text color="green.500" fontWeight="bold" mt={2}>
-              Your target ({target?.name}) is safe right now
+              Your target is safe right now
               </Text>
             )}
             </>

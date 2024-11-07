@@ -73,7 +73,7 @@ export class TargetService {
 
     const game = await this.gme.findById(player.gameId);
 
-    if (player.status !== PlayerStatus.ALIVE) {
+    if (player.status !== PlayerStatus.ALIVE && player.status !== PlayerStatus.SAFE) {
       // Player is no longer alive and cannot view their target
       throw new PlayerStatusNotValidException(playerId, player.status);
     }
