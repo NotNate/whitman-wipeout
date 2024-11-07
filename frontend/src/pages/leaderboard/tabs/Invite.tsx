@@ -14,8 +14,8 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     const loadPlayers = async () => {
       const allPlayers = await fetchLeaderboard(); // Fetch all players in the game
       const filteredPlayers = allPlayers.filter(
-        (player) => !player.teamPartnerId // Exclude players who already have a partner
-      );
+        (player) => !player.teamPartnerId || player.teamPartnerId === '' // Exclude players who already have a partner
+      );      
       setPlayers(filteredPlayers);
     };
 
