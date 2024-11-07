@@ -18,12 +18,14 @@ export const inviteTeam = async (gameId: string, teamPartnerId: string) => {
  * Get the list of players invited by the current player
  */
 export const getInvites = async (gameId: string) => {
-  return await authPost(`/game/player/getInvites?gameId=${gameId}`);
-};
+  const response = await authPost(`/game/player/getInvites?gameId=${gameId}`);
+  return response.data;
+}
 
 /**
  * Get the list of players who have invited the current player
  */
 export const getInvitedBy = async (gameId: string) => {
-  return await authPost(`/game/player/getInvitedBy?gameId=${gameId}`);
+  const response = await authPost(`/game/player/getInvitedBy?gameId=${gameId}`);
+  return response.data;
 };
