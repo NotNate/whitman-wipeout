@@ -31,6 +31,9 @@ export enum TargetStatus {
 export class Target extends mongoose.Document<mongoose.Schema.Types.ObjectId> {
   @Prop({ type: mongoose.Schema.Types.ObjectId, required: true })
   playerId: MongoId;
+  
+  @Prop({ type: [mongoose.Schema.Types.ObjectId], required: true })
+  opponentTeamIds: MongoId[];
 
   /**
    * The game that this assigned target is within

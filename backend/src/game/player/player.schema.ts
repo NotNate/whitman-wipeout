@@ -53,6 +53,12 @@ export class Player extends mongoose.Document<mongoose.Schema.Types.ObjectId> {
   gameId: MongoId;
 
   /**
+   * The team of the player in the game.
+   */
+  @Prop({ type: mongoose.Schema.Types.ObjectId, required: false })
+  teamPartnerId: MongoId;
+
+  /**
    * The game that this user is a part of.
    */
   @Prop({ type: String, enum: PlayerStatus, default: PlayerStatus.ALIVE })

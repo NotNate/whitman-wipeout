@@ -105,87 +105,173 @@ export class TargetService {
     // Only allow admins to conduct this action
     const role = await this.plyr.getRole(gameId, userId);
     if (role !== PlayerRole.ADMIN) {
-      throw new PlayerRoleUnauthorizedException(userId, role);
+        throw new PlayerRoleUnauthorizedException(userId, role);
     }
 
-    // Get all alive players, randomized order
-    const players = shuffle(await this.plyr.findByGameAndStatus(gameId));
+    // Get all alive players
+    const players = await this.plyr.findByGameAndStatus(gameId);
+
+    const teams = new Map<string, MongoId[]>(); // Map to group players into teams
+    const playersToDisqualify: MongoId[] = []; // List to keep track of solo players
+
+    players.forEach(player => {
+        if (!player.teamPartnerId) {
+            // Player without a partner is marked for disqualification
+            playersToDisqualify.push(player.id);
+        } else {
+            const partnerId = player.teamPartnerId.toString();
+            if (teams.has(partnerId)) {
+                teams.get(partnerId)!.push(player.id);
+            } else {
+                teams.set(player.id.toString(), [player.id]);
+            }
+        }
+    });
+
+    // Disqualify solo players
+    for (const playerId of playersToDisqualify) {
+        const player = await this.plyr.findById(playerId);
+        player.status = PlayerStatus.DISQUALIFIED;
+        await player.save();
+    }
+
+    // Filter out incomplete teams (any team with only one player left due to disqualification)
+    const validTeams = Array.from(teams.values()).filter(team => team.length === 2);
+
+    // Shuffle the valid teams
+    const shuffledTeams = shuffle(validTeams);
 
     const targetDocuments: TargetDocument[] = [];
-    // Create and assign
-    for (let i = 0; i < players.length; i++) {
-      const target = new this.model();
-      target.gameId = gameId;
-      target.playerId = new MongoId(players[i].id);
-      target.targetId = new MongoId(players[(i + 1) % players.length].id);
-      targetDocuments.push(target);
+
+    // Assign each team a target team in a circular manner
+    for (let i = 0; i < shuffledTeams.length; i++) {
+        const currentTeam = shuffledTeams[i];
+        const targetTeam = shuffledTeams[(i + 1) % shuffledTeams.length];
+
+        // Create target documents for each member of the current team against each member of the target team
+        for (const playerId of currentTeam) {
+            for (const targetId of targetTeam) {
+                const target = new this.model();
+                target.gameId = gameId;
+                target.playerId = new MongoId(playerId);
+                target.targetId = new MongoId(targetId);
+                targetDocuments.push(target);
+            }
+        }
     }
 
-    // Set all pending targets to be expired for this game
+    // Set all pending targets to expired for this game
     await this.model
-      .find()
-      .updateMany(
-        { gameId: gameId, status: TargetStatus.PENDING },
-        { $set: { status: TargetStatus.EXPIRED } },
-      )
-      .exec();
+        .find()
+        .updateMany(
+            { gameId: gameId, status: TargetStatus.PENDING },
+            { $set: { status: TargetStatus.EXPIRED } },
+        )
+        .exec();
 
-    // Assign new targets
+    // Insert new target assignments
     await this.model.insertMany(targetDocuments);
 
     // Update the game status if it is not there already
     await game.updateOne({ $set: { status: GameStatus.IN_PROGRESS } }).exec();
-  }
+}
 
-  async killTarget(userId: MongoId, gameId: MongoId, targetId: MongoId) {
-    // Grab the game to make sure it exists
-    await this.gme.findById(gameId);
+async killTarget(userId: MongoId, gameId: MongoId, targetId: MongoId) {
+  // Grab the game to make sure it exists
+  await this.gme.findById(gameId);
 
-    // Only allow admins to conduct this action
-    const role = await this.plyr.getRole(gameId, userId);
-    if (role !== PlayerRole.ADMIN) {
+  // Only allow admins to conduct this action
+  const role = await this.plyr.getRole(gameId, userId);
+  if (role !== PlayerRole.ADMIN) {
       throw new PlayerRoleUnauthorizedException(userId, role);
-    }
-
-    const target = await this.findById(targetId);
-
-    // Make sure the target is marked as pending
-    if (target.status !== TargetStatus.PENDING) {
-      throw new TargetStatusNotValidException(targetId, target.status);
-    }
-
-    const playerId = target.playerId;
-    const killedId = target.targetId;
-    const player = await this.plyr.findById(playerId);
-    const killed = await this.plyr.findById(killedId);
-    const killedTarget = await this.findByGameAndPlayer(gameId, killedId);
-
-    // Make sure player is alive
-    if (player.status !== PlayerStatus.ALIVE) {
-      throw new PlayerStatusNotValidException(playerId, player.status);
-    }
-
-    // Make sure the person about to be killed is alive
-    if (killed.status !== PlayerStatus.ALIVE) {
-      throw new PlayerStatusNotValidException(killedId, killed.status);
-    }
-
-    killed.status = PlayerStatus.KILLED;
-    killed.save();
-
-    target.status = TargetStatus.COMPLETE;
-    target.save();
-
-    killedTarget.status = TargetStatus.USER_KILLED;
-    killedTarget.save();
-
-    // Create new pending target for the killer
-    const newTarget = new this.model();
-    newTarget.gameId = gameId;
-    newTarget.playerId = playerId;
-    newTarget.targetId = killedTarget.targetId;
-    newTarget.save();
   }
+
+  const target = await this.findById(targetId);
+
+  // Ensure the target status is pending
+  if (target.status !== TargetStatus.PENDING) {
+      throw new TargetStatusNotValidException(targetId, target.status);
+  }
+
+  const playerId = target.playerId;
+  const killedId = target.targetId;
+  const player = await this.plyr.findById(playerId);
+  const killed = await this.plyr.findById(killedId);
+  const killedPartnerId = killed.teamPartnerId;
+  const playerPartnerId = player.teamPartnerId;
+
+  // Ensure player and killed target are both alive
+  if (player.status !== PlayerStatus.ALIVE) {
+      throw new PlayerStatusNotValidException(playerId, player.status);
+  }
+  if (killed.status !== PlayerStatus.ALIVE) {
+      throw new PlayerStatusNotValidException(killedId, killed.status);
+  }
+
+  // Kill the target player
+  killed.status = PlayerStatus.KILLED;
+  killed.save();
+
+  // Mark the current target as complete
+  target.status = TargetStatus.COMPLETE;
+  target.save();
+
+  // Expire the teammate's target for the killed player
+  if (playerPartnerId) {
+      const partnerTarget = await this.findByGameAndPlayerAndTarget(gameId, playerPartnerId, killedId);
+      if (partnerTarget) {
+          partnerTarget.status = TargetStatus.EXPIRED;
+          partnerTarget.save();
+      }
+  }
+
+  // Check if the entire opposing team is eliminated
+  const killedPartner = killedPartnerId ? await this.plyr.findById(killedPartnerId) : null;
+  const isEntireTeamEliminated = killedPartner && killedPartner.status === PlayerStatus.KILLED;
+
+  if (isEntireTeamEliminated) {
+      // Expire any remaining targets of the killed team members for both players in the killing team
+      for (const id of [playerId, playerPartnerId]) {
+          if (id) {
+              const remainingTarget = await this.findByGameAndPlayerAndTarget(gameId, id, killedPartnerId);
+              if (remainingTarget) {
+                  remainingTarget.status = TargetStatus.EXPIRED;
+                  remainingTarget.save();
+              }
+          }
+      }
+
+      // Assign the killing team the targets of the eliminated team
+      const newTargets = await this.model.find({
+          gameId: gameId,
+          playerId: killedId,
+          status: TargetStatus.PENDING
+      });
+
+      for (const newTarget of newTargets) {
+          for (const id of [playerId, playerPartnerId]) {
+              if (id) {
+                  const targetAssignment = new this.model();
+                  targetAssignment.gameId = gameId;
+                  targetAssignment.playerId = id;
+                  targetAssignment.targetId = newTarget.targetId;
+                  targetAssignment.status = TargetStatus.PENDING;
+                  targetAssignment.save();
+              }
+          }
+      }
+  }
+}
+
+// Helper function to find a specific target by game, player, and target
+async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId: MongoId): Promise<Target | null> {
+  return await this.model.findOne({
+      gameId: gameId,
+      playerId: playerId,
+      targetId: targetId,
+      status: TargetStatus.PENDING,
+  }).exec();
+}
 
   /**
    * Mark the player status of someone as safe, or make the unsafe if already marked safe.
@@ -218,44 +304,48 @@ export class TargetService {
     // Only allow admins to conduct this action
     const role = await this.plyr.getRole(gameId, userId);
     if (role !== PlayerRole.ADMIN) {
-      throw new PlayerRoleUnauthorizedException(userId, role);
+        throw new PlayerRoleUnauthorizedException(userId, role);
     }
 
     const players: { [key: string]: Player } = {};
     (await this.plyr.findByGame(gameId)).forEach(
-      (player) => (players[player.id] = player),
+        (player) => (players[player.id] = player)
     );
-    const playerIds = Object.keys(players).map((pid) => new MongoId(pid));
 
-    // Get all users associated with these players
+    // Map player IDs to user details for quick lookup
     const userIds = Object.values(players).map((p) => p.userId);
     const users: { [key: string]: User } = {};
     (await this.usr.findByIds(userIds)).forEach(
-      (user) => (users[user.id] = user),
+        (user) => (users[user.id] = user)
     );
 
     const playersToUsers: { [key: string]: User } = {};
     Object.values(players).forEach((p) => {
-      playersToUsers[p.id] = users[p.userId.toString()];
+        playersToUsers[p.id] = users[p.userId.toString()];
     });
 
-    const all = await this.model.find({ gameId: gameId }).exec();
+    // Retrieve all target assignments for the game
+    const allTargets = await this.model.find({ gameId: gameId }).exec();
 
     const data = [];
-    all.forEach((t) => {
-      // The users in question
-      const from = playersToUsers[t.playerId.toString()];
-      const to = playersToUsers[t.targetId.toString()];
-      const targetId = t.id;
-      data.push({
-        fromName: `${from.firstName} ${from.surname}`,
-        toName: `${to.firstName} ${to.surname}`,
-        targetId,
-        status: t.status,
-      });
+    allTargets.forEach((t) => {
+        const fromPlayer = playersToUsers[t.playerId.toString()];
+        const targetPlayer = playersToUsers[t.targetId.toString()];
+
+        const targetId = t.id;
+        
+        data.push({
+            fromName: `${fromPlayer.firstName} ${fromPlayer.surname}`,
+            toName: `${targetPlayer.firstName} ${targetPlayer.surname}`,
+            targetId,
+            status: t.status
+        });
     });
+
     return data;
-  }
+}
+
+
 
   async fetchLeaderboard(gameId: MongoId) {
     const game = await this.gme.findById(gameId);
