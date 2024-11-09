@@ -121,13 +121,13 @@ export class PlayerService {
     teamPartnerId: MongoId,
 ) {
   const inviter = await this.usr.find(userId, gameId);
-  const teamPartner = await this.usr.find(teamPartnerId, gameId);
+  const teamPartnerObj = await this.usr.find(teamPartnerId, gameId);
 
   const inviterId = new MongoId(inviter.id);
-  const teamPartnerId = new MongoId(teamPartner.id);
+  const teamPartner = new MongoId(teamPartnerObj.id);
 
     if (!teamPartner) {
-        throw new PlayerNotFoundException(teamPartnerId);
+        throw new PlayerNotFoundException(teamPartner);
     }
 
     if (!inviter) {
@@ -138,7 +138,7 @@ export class PlayerService {
     teamPartner.invitedBy.push(userId);
     await teamPartner.save();
 
-    inviter.invited.push(teamPartnerId);
+    inviter.invited.push(teamPartner);
     await inviter.save();
 }
 
