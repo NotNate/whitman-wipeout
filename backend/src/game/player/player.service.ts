@@ -120,12 +120,12 @@ export class PlayerService {
     gameId: MongoId,
     teamPartnerId: MongoId,
 ) {
-    const teamPartner = await this.find(teamPartnerId, gameId);
+    const teamPartner = await this.findById(teamPartnerId);
     if (!teamPartner) {
         throw new PlayerNotFoundException(teamPartnerId);
     }
 
-    const inviter = await this.find(userId, gameId);
+    const inviter = await this.findById(userId);
     if (!inviter) {
         throw new PlayerNotFoundException(userId);
     }
