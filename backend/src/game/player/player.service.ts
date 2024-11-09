@@ -124,11 +124,11 @@ export class PlayerService {
     const teamPartner = await this.find(teamPartnerId, gameId);
 
     if (!teamPartner) {
-        throw new PlayerNotFoundException(teamPartner.userId);
+        throw new PlayerNotFoundException(teamPartnerId);
     }
 
     if (!user) {
-        throw new PlayerNotFoundException(user.userId);
+        throw new PlayerNotFoundException(userId);
     }
 
     // Proceed to update lists if both entities are valid
