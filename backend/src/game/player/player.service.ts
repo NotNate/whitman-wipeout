@@ -122,11 +122,13 @@ export class PlayerService {
 ) {
     const teamPartner = await this.findById(teamPartnerId);
     if (!teamPartner) {
+        console.log('Could not find team partner.');
         throw new PlayerNotFoundException(teamPartnerId);
     }
 
     const inviter = await this.findById(userId);
     if (!inviter) {
+      console.log('Could not find inviter.');
         throw new PlayerNotFoundException(userId);
     }
 
