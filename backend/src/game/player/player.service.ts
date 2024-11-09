@@ -132,10 +132,10 @@ export class PlayerService {
 
     // Proceed to update lists if both entities are valid
     teamPartner.invitedBy.push(userId);
-    teamPartner.save();
+    await teamPartner.save();
 
     inviter.invited.push(teamPartnerId);
-    inviter.save();
+    await inviter.save();
 }
 
   async getInvites(userId: MongoId, gameId: MongoId): Promise<MongoId[]> {
