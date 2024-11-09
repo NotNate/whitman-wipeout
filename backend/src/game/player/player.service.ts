@@ -119,17 +119,24 @@ export class PlayerService {
     userId: MongoId,
     gameId: MongoId,
     teamPartnerId: MongoId,
-  ) {
-    // add the inviter to the teamPartner's list of people who have invited them
+) {
     const teamPartner = await this.find(teamPartnerId, gameId);
+    if (!teamPartner) {
+        throw new PlayerNotFoundException(teamPartnerId);
+    }
+
+    const inviter = await this.find(userId, gameId);
+    if (!inviter) {
+        throw new PlayerNotFoundException(userId);
+    }
+
+    // Proceed to update lists if both entities are valid
     teamPartner.invitedBy.push(userId);
     teamPartner.save();
 
-    // add the teamPartner to the inviter's list of people they have invited
-    const inviter = await this.find(userId, gameId);
     inviter.invited.push(teamPartnerId);
     inviter.save();
-  }
+}
 
   async getInvites(userId: MongoId, gameId: MongoId): Promise<MongoId[]> {
     const player = await this.find(userId, gameId);
