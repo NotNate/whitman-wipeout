@@ -120,26 +120,23 @@ export class PlayerService {
     gameId: MongoId,
     teamPartnerId: MongoId,
 ) {
-  const inviter = await this.usr.find(userId, gameId);
-  const teamPartnerObj = await this.usr.find(teamPartnerId, gameId);
-
-  const inviterId = new MongoId(inviter.id);
-  const teamPartner = new MongoId(teamPartnerObj.id);
+    const user = await this.find(userId, gameId);
+    const teamPartner = await this.find(teamPartnerId, gameId);
 
     if (!teamPartner) {
-        throw new PlayerNotFoundException(teamPartner);
+        throw new PlayerNotFoundException(teamPartner.userId);
     }
 
-    if (!inviter) {
-        throw new PlayerNotFoundException(userId);
+    if (!user) {
+        throw new PlayerNotFoundException(user.userId);
     }
 
     // Proceed to update lists if both entities are valid
-    teamPartner.invitedBy.push(userId);
+    teamPartner.invitedBy.push(user.userId);
     await teamPartner.save();
 
-    inviter.invited.push(teamPartner);
-    await inviter.save();
+    user.invited.push(teamPartner.userId);
+    await user.save();
 }
 
   async getInvites(userId: MongoId, gameId: MongoId): Promise<MongoId[]> {
