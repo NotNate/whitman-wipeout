@@ -183,127 +183,126 @@ export class TargetService {
  * @param targetId The ID of the target to be killed.
  */
 async killTarget(userId: MongoId, gameId: MongoId, targetId: MongoId) {
-  const session = await this.model.startSession();
-  session.startTransaction();
-  try {
-    // Ensure the game exists
-    const game = await this.gme.findById(gameId).session(session);
-    if (!game) {
-      throw new GameStatusNotValidException(gameId, 'Game not found');
+  // Ensure the game exists
+  const game = await this.gme.findById(gameId);
+  if (!game) {
+    throw new GameStatusNotValidException(gameId, 'Game not found');
+  }
+
+  // Only allow admins to conduct this action
+  const role = await this.plyr.getRole(gameId, userId);
+  if (role !== PlayerRole.ADMIN) {
+    throw new PlayerRoleUnauthorizedException(userId, role);
+  }
+
+  // Find the target assignment
+  const target = await this.findById(targetId);
+  if (!target) {
+    throw new TargetNotFoundException(targetId);
+  }
+
+  // Ensure the target status is PENDING
+  if (target.status !== TargetStatus.PENDING) {
+    throw new TargetStatusNotValidException(targetId, target.status);
+  }
+
+  const playerId = target.playerId;
+  const killedId = target.targetId;
+
+  // Fetch the player (killer) and the killed player
+  const player = await this.plyr.findById(playerId);
+  if (!player) {
+    throw new PlayerStatusNotValidException(playerId, 'Player not found');
+  }
+
+  const killed = await this.plyr.findById(killedId);
+  if (!killed) {
+    throw new PlayerStatusNotValidException(killedId, 'Killed player not found');
+  }
+
+  const killedPartnerId = killed.teamPartnerId;
+  const playerPartnerId = player.teamPartnerId;
+
+  // Ensure both player and killed target are ALIVE
+  if (player.status !== PlayerStatus.ALIVE) {
+    throw new PlayerStatusNotValidException(playerId, player.status);
+  }
+  if (killed.status !== PlayerStatus.ALIVE) {
+    throw new PlayerStatusNotValidException(killedId, killed.status);
+  }
+
+  // Kill the target player
+  killed.status = PlayerStatus.KILLED;
+  await killed.save(); // Save the killed player's status
+
+  // Mark the current target as COMPLETE
+  target.status = TargetStatus.COMPLETE;
+  await target.save(); // Save the updated target assignment
+
+  // Expire all target assignments pointing to the killed player
+  await this.model.updateMany(
+    { targetId: killed.id, status: TargetStatus.PENDING },
+    { $set: { status: TargetStatus.EXPIRED } }
+  ).exec();
+
+  // Expire the partner's target on the killed player, if applicable
+  if (killedPartnerId) {
+    const partnerTarget = await this.findByGameAndPlayerAndTarget(gameId, killedPartnerId, killedId);
+    if (partnerTarget) {
+      partnerTarget.status = TargetStatus.EXPIRED;
+      await partnerTarget.save(); // Save the expired partner target
+    }
+  }
+
+  // Check if the entire opposing team is eliminated
+  let isEntireTeamEliminated = false;
+  if (killedPartnerId) {
+    const killedPartner = await this.plyr.findById(killedPartnerId);
+    if (killedPartner && killedPartner.status === PlayerStatus.KILLED) {
+      isEntireTeamEliminated = true;
+    }
+  }
+
+  if (isEntireTeamEliminated) {
+    // Expire any remaining targets of the killed team members for both players in the killing team
+    const killingTeamIds: MongoId[] = [playerId];
+    if (playerPartnerId) {
+      killingTeamIds.push(playerPartnerId);
     }
 
-    // Only allow admins to conduct this action
-    const role = await this.plyr.getRole(gameId, userId);
-    if (role !== PlayerRole.ADMIN) {
-      throw new PlayerRoleUnauthorizedException(userId, role);
-    }
-
-    // Find the target assignment
-    const target = await this.findById(targetId);
-    if (!target) {
-      throw new TargetNotFoundException(targetId);
-    }
-
-    // Ensure the target status is PENDING
-    if (target.status !== TargetStatus.PENDING) {
-      throw new TargetStatusNotValidException(targetId, target.status);
-    }
-
-    const playerId = target.playerId;
-    const killedId = target.targetId;
-
-    // Fetch the player (killer) and the killed player
-    const player = await this.plyr.findById(playerId).session(session);
-    if (!player) {
-      throw new PlayerStatusNotValidException(playerId, 'Player not found');
-    }
-
-    const killed = await this.plyr.findById(killedId).session(session);
-    if (!killed) {
-      throw new PlayerStatusNotValidException(killedId, 'Killed player not found');
-    }
-
-    const killedPartnerId = killed.teamPartnerId;
-    const playerPartnerId = player.teamPartnerId;
-
-    // Ensure both player and killed target are ALIVE
-    if (player.status !== PlayerStatus.ALIVE) {
-      throw new PlayerStatusNotValidException(playerId, player.status);
-    }
-    if (killed.status !== PlayerStatus.ALIVE) {
-      throw new PlayerStatusNotValidException(killedId, killed.status);
-    }
-
-    // Kill the target player
-    killed.status = PlayerStatus.KILLED;
-    await killed.save({ session }); // Await the save operation within the session
-
-    // Mark the current target as COMPLETE
-    target.status = TargetStatus.COMPLETE;
-    await target.save({ session }); // Await the save operation within the session
-
-    // Expire all target assignments pointing to the killed player
     await this.model.updateMany(
-      { targetId: killed.id, status: TargetStatus.PENDING },
-      { $set: { status: TargetStatus.EXPIRED } },
-      { session }
+      {
+        gameId: gameId,
+        playerId: { $in: killingTeamIds },
+        targetId: { $in: [killed.id, killedPartnerId] },
+        status: TargetStatus.PENDING,
+      },
+      { $set: { status: TargetStatus.EXPIRED } }
     ).exec();
 
-    // Additionally, expire the teammate's target on the killed player
-    if (killedPartnerId) {
-      const partnerTarget = await this.findByGameAndPlayerAndTarget(gameId, killedPartnerId, killedId).session(session);
-      if (partnerTarget) {
-        partnerTarget.status = TargetStatus.EXPIRED;
-        await partnerTarget.save({ session }); // Await the save operation within the session
-      }
-    }
+    // Assign the killing team the targets of the eliminated team
+    const eliminatedTeamTargets = await this.model.find({
+      gameId: gameId,
+      playerId: { $in: [killed.id, killedPartnerId] },
+      status: TargetStatus.PENDING,
+    }).exec();
 
-    // Check if the entire opposing team is eliminated
-    const killedPartner = killedPartnerId ? await this.plyr.findById(killedPartnerId).session(session) : null;
-    const isEntireTeamEliminated = killedPartner && killedPartner.status === PlayerStatus.KILLED;
+    const newTargetAssignments: Partial<Target>[] = [];
 
-    if (isEntireTeamEliminated) {
-      // Expire any remaining targets of the killed team members for both players in the killing team
-      for (const id of [playerId, playerPartnerId].filter(Boolean)) {
-        const remainingTargets = await this.model.find({
+    for (const eliminatedTarget of eliminatedTeamTargets) {
+      for (const killingTeamId of killingTeamIds) {
+        newTargetAssignments.push({
           gameId: gameId,
-          playerId: id,
-          targetId: { $in: [killed.id, killedPartnerId] },
+          playerId: killingTeamId,
+          targetId: eliminatedTarget.targetId,
           status: TargetStatus.PENDING,
-        }).session(session).exec();
-
-        for (const remainingTarget of remainingTargets) {
-          remainingTarget.status = TargetStatus.EXPIRED;
-          await remainingTarget.save({ session }); // Await the save operation within the session
-        }
-      }
-
-      // Assign the killing team the targets of the eliminated team
-      const eliminatedTeamTargets = await this.model.find({
-        gameId: gameId,
-        playerId: { $in: [killed.id, killedPartnerId] },
-        status: TargetStatus.PENDING,
-      }).session(session).exec();
-
-      for (const eliminatedTarget of eliminatedTeamTargets) {
-        for (const id of [playerId, playerPartnerId].filter(Boolean)) {
-          const targetAssignment = new this.model({
-            gameId: gameId,
-            playerId: id,
-            targetId: eliminatedTarget.targetId,
-            status: TargetStatus.PENDING,
-          });
-          await targetAssignment.save({ session }); // Await the save operation within the session
-        }
+        });
       }
     }
 
-    await session.commitTransaction();
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
+    if (newTargetAssignments.length > 0) {
+      await this.model.insertMany(newTargetAssignments);
+    }
   }
 }
 
