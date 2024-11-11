@@ -134,12 +134,10 @@ export class PlayerService {
       throw new PlayerNotFoundException(userId);
     }
   
-    // Use the `equals` method to compare ObjectIds
     if (teamPartner.invitedBy.some(id => id.equals(user.userId))) {
       throw new Error('Team partner has already been invited by this user.');
     }
   
-    // Push MongoId objects directly without converting to strings
     teamPartner.invitedBy.push(user.userId);
     await teamPartner.save();
   
@@ -262,5 +260,73 @@ export class PlayerService {
     return allInfo;
   }
 
-  // TODO: Implement acceptInvite and rejectInvite
+  async acceptInvite(
+    currentUserId: MongoId,
+    gameId: MongoId,
+    inviterUserId: string
+  ): Promise<void> {
+    const inviterUserIdMongo = new MongoId(inviterUserId);
+    const currentPlayer = await this.find(currentUserId, gameId);
+    if (!currentPlayer) {
+      throw new PlayerNotFoundException(currentUserId);
+    }
+  
+    const inviterPlayer = await this.find(inviterUserIdMongo, gameId);
+    if (!inviterPlayer) {
+      throw new PlayerNotFoundException(inviterUserIdMongo);
+    }
+  
+    // Verify the invite exists
+    const inviteExists = currentPlayer.invitedBy.some(id => id.equals(inviterUserIdMongo));
+    if (!inviteExists) {
+      throw new Error('No invite from this user.');
+    }
+  
+    // Remove inviterUserId from currentPlayer.invitedBy
+    currentPlayer.invitedBy = currentPlayer.invitedBy.filter(id => !id.equals(inviterUserIdMongo));
+  
+    // Remove currentUserId from inviterPlayer.invited
+    inviterPlayer.invited = inviterPlayer.invited.filter(id => !id.equals(currentUserId));
+  
+    // Set teamPartnerId for both players
+    currentPlayer.teamPartnerId = inviterPlayer.id;
+    inviterPlayer.teamPartnerId = currentPlayer.id;
+  
+    // Save changes
+    await currentPlayer.save();
+    await inviterPlayer.save();
+  }
+
+  async rejectInvite(
+    currentUserId: MongoId,
+    gameId: MongoId,
+    inviterUserId: string
+  ): Promise<void> {
+    const inviterUserIdMongo = new MongoId(inviterUserId);
+    const currentPlayer = await this.find(currentUserId, gameId);
+    if (!currentPlayer) {
+      throw new PlayerNotFoundException(currentUserId);
+    }
+  
+    const inviterPlayer = await this.find(inviterUserIdMongo, gameId);
+    if (!inviterPlayer) {
+      throw new PlayerNotFoundException(inviterUserIdMongo);
+    }
+  
+    // Verify the invite exists
+    const inviteExists = currentPlayer.invitedBy.some(id => id.equals(inviterUserIdMongo));
+    if (!inviteExists) {
+      throw new Error('No invite from this user.');
+    }
+  
+    // Remove inviterUserId from currentPlayer.invitedBy
+    currentPlayer.invitedBy = currentPlayer.invitedBy.filter(id => !id.equals(inviterUserIdMongo));
+  
+    // Remove currentUserId from inviterPlayer.invited
+    inviterPlayer.invited = inviterPlayer.invited.filter(id => !id.equals(currentUserId));
+  
+    // Save changes
+    await currentPlayer.save();
+    await inviterPlayer.save();
+  }
 }

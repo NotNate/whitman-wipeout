@@ -77,4 +77,32 @@ export class PlayerController {
     const playersInfo = await this.plyr.getAllPlayersExcept(userId, gameId);
     return playersInfo;
   }
+
+@Post('acceptInvite')
+@UseGuards(JwtAuthGuard)
+async acceptInvite(
+  @Req() req: Request,
+  @QueryRequired('gameId') gameIdQuery: string,
+  @QueryRequired('inviterUserId') inviterUserIdQuery: string,
+) {
+  const userId = getUserIdFromRequest(req);
+  const gameId = new MongoId(gameIdQuery);
+  const inviterUserId = inviterUserIdQuery;
+  await this.plyr.acceptInvite(userId, gameId, inviterUserId);
+  return { msg: 'invite accepted' };
+}
+
+@Post('rejectInvite')
+@UseGuards(JwtAuthGuard)
+async rejectInvite(
+  @Req() req: Request,
+  @QueryRequired('gameId') gameIdQuery: string,
+  @QueryRequired('inviterUserId') inviterUserIdQuery: string,
+) {
+  const userId = getUserIdFromRequest(req);
+  const gameId = new MongoId(gameIdQuery);
+  const inviterUserId = inviterUserIdQuery;
+  await this.plyr.rejectInvite(userId, gameId, inviterUserId);
+  return { msg: 'invite rejected' };
+}
 }

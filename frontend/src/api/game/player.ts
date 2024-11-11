@@ -38,3 +38,17 @@ export const getAllPlayersInfo = async (gameId: string): Promise<LeaderboardPlay
   const response = await authPost(`/game/player/getAllPlayersInfo?gameId=${gameId}`);
   return response.data as LeaderboardPlayerInfo[];
 };
+
+/**
+ * Accept an invite from a user
+ */
+export const acceptInvite = async (gameId: string, inviterUserId: string) => {
+  await authPost(`/game/player/acceptInvite?gameId=${gameId}&inviterUserId=${inviterUserId}`);
+};
+
+/**
+ * Reject an invite from a user
+ */
+export const rejectInvite = async (gameId: string, inviterUserId: string) => {
+  await authPost(`/game/player/rejectInvite?gameId=${gameId}&inviterUserId=${inviterUserId}`);
+};
