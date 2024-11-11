@@ -1,40 +1,57 @@
 import { useEffect, useState, useCallback } from "react";
-import { Avatar, Badge, Button, Card, HStack, Stack, Text, Flex, Spinner } from "@chakra-ui/react";
+import { Avatar, Badge, Stack, Text, Flex, Spinner, useToast } from "@chakra-ui/react";
 import { 
   inviteTeam, 
   getInvites, 
   getInvitedBy, 
   getAllPlayersInfo, 
   acceptInvite, 
-  rejectInvite 
+  rejectInvite,
+  getCurrentPlayerInfo // Newly added
 } from "api/game/player";
 import { LeaderboardPlayerInfo } from "shared/api/game/player";
 import { GameInfo } from "shared/api/game";
+import MultiButton from "components/MultiButton";
 
 function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   const [players, setPlayers] = useState<LeaderboardPlayerInfo[]>([]);
   const [invites, setInvites] = useState<string[]>([]);
   const [invitedBy, setInvitedBy] = useState<string[]>([]);
+  const [hasPartner, setHasPartner] = useState<boolean>(false);
+  const [partnerName, setPartnerName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+
+  const toast = useToast();
 
   // Function to load data
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [allPlayers, inviteList, invitedByList] = await Promise.all([
+      // Fetch all necessary data concurrently
+      const [allPlayers, inviteList, invitedByList, currentPlayerInfo] = await Promise.all([
         getAllPlayersInfo(gameInfo.gameId),
         getInvites(gameInfo.gameId),
         getInvitedBy(gameInfo.gameId),
+        getCurrentPlayerInfo(gameInfo.gameId),
       ]);
 
       console.log("All Players:", allPlayers);
       console.log("Invites:", inviteList);
       console.log("Invited By:", invitedByList);
+      console.log("Current Player Info:", currentPlayerInfo);
 
-      // Filter players to only those without a teamPartnerId
-      const availablePlayers = allPlayers.filter(player => !player.teamPartnerId);
+      if (currentPlayerInfo.hasPartner && currentPlayerInfo.partnerName) {
+        setHasPartner(true);
+        setPartnerName(currentPlayerInfo.partnerName);
+        setPlayers([]); // Clear players list since user has a partner
+      } else {
+        setHasPartner(false);
+        setPartnerName('');
+        // Filter players to only those without a teamPartnerId
+        const availablePlayers = allPlayers.filter(player => !player.teamPartnerId);
+        setPlayers(availablePlayers);
+      }
 
-      setPlayers(availablePlayers);
       setInvites(inviteList); // Already strings
       setInvitedBy(invitedByList); // Already strings
     } catch (error) {
@@ -54,25 +71,48 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   const handleInvite = async (playerId: string) => {
     try {
       await inviteTeam(gameInfo.gameId, playerId);
-      // After inviting, re-fetch all data
       await loadData();
-      console.log("Updated Invites after inviting:", playerId);
+      toast({
+        title: "Invite Sent",
+        description: "You have successfully invited the player.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
       console.error(`Failed to invite player ${playerId}:`, error);
-      // Optionally, handle error state here
+      toast({
+        title: "Invite Failed",
+        description: "There was an error sending the invite.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
+
 
   // Handler for accepting an invite
   const handleAccept = async (inviterUserId: string) => {
     try {
       await acceptInvite(gameInfo.gameId, inviterUserId);
-      // After accepting, re-fetch all data
       await loadData();
-      console.log("Accepted invite from:", inviterUserId);
+      toast({
+        title: "Invite Accepted",
+        description: "You have successfully accepted the invite.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
       console.error(`Failed to accept invite from ${inviterUserId}:`, error);
-      // Optionally, handle error state here
+      toast({
+        title: "Accept Failed",
+        description: "There was an error accepting the invite.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
 
@@ -80,12 +120,23 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   const handleReject = async (inviterUserId: string) => {
     try {
       await rejectInvite(gameInfo.gameId, inviterUserId);
-      // After rejecting, re-fetch all data
       await loadData();
-      console.log("Rejected invite from:", inviterUserId);
+      toast({
+        title: "Invite Rejected",
+        description: "You have successfully rejected the invite.",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      });
     } catch (error) {
       console.error(`Failed to reject invite from ${inviterUserId}:`, error);
-      // Optionally, handle error state here
+      toast({
+        title: "Reject Failed",
+        description: "There was an error rejecting the invite.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
 
@@ -98,6 +149,18 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     );
   }
 
+  // If user has a partner, display the message
+  if (hasPartner) {
+    return (
+      <Flex align="center" justify="center" height="100vh">
+        <Text fontSize="2xl" fontWeight="bold">
+          You already have a partner: {partnerName}
+        </Text>
+      </Flex>
+    );
+  }
+
+  // Else, display the invite list
   return (
     <Stack alignItems="center" width="100%" padding={4}>
       <Text fontSize="2xl" fontWeight="bold">Invite Players</Text>
@@ -210,22 +273,24 @@ function InviteItem({
           </Button>
         ) : (
           <Flex gap={2}>
-            <Button
-              onClick={handleAcceptClick}
-              isLoading={loading}
+            <MultiButton
+              onActivate={handleAcceptClick}
+              clicksRequired={5}
               colorScheme="green"
               variant="solid"
+              isLoading={loading}
             >
               Accept
-            </Button>
-            <Button
-              onClick={handleRejectClick}
-              isLoading={loading}
+            </MultiButton>
+            <MultiButton
+              onActivate={handleRejectClick}
+              clicksRequired={5}
               colorScheme="red"
               variant="solid"
+              isLoading={loading}
             >
               Reject
-            </Button>
+            </MultiButton>
           </Flex>
         )}
       </HStack>

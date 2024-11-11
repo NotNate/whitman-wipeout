@@ -52,3 +52,11 @@ export const acceptInvite = async (gameId: string, inviterUserId: string) => {
 export const rejectInvite = async (gameId: string, inviterUserId: string) => {
   await authPost(`/game/player/rejectInvite?gameId=${gameId}&inviterUserId=${inviterUserId}`);
 };
+
+/**
+ * Get current player's partner information
+ */
+export const getCurrentPlayerInfo = async (gameId: string): Promise<{ hasPartner: boolean; partnerName?: string }> => {
+  const response = await authPost(`/game/player/getCurrentPlayerInfo?gameId=${gameId}`);
+  return response.data as { hasPartner: boolean; partnerName?: string };
+};

@@ -105,4 +105,19 @@ async rejectInvite(
   await this.plyr.rejectInvite(userId, gameId, inviterUserId);
   return { msg: 'invite rejected' };
 }
+
+  /**
+   * Get current player's partner information.
+   */
+  @Post('getCurrentPlayerInfo')
+  @UseGuards(JwtAuthGuard)
+  async getCurrentPlayerInfo(
+    @Req() req: Request,
+    @QueryRequired('gameId') gameIdQuery: string,
+  ): Promise<{ hasPartner: boolean; partnerName?: string }> {
+    const userId = getUserIdFromRequest(req);
+    const gameId = new MongoId(gameIdQuery);
+    const info = await this.plyr.getCurrentPlayerInfo(userId, gameId);
+    return info;
+  }
 }

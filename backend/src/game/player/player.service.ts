@@ -118,6 +118,32 @@ export class PlayerService {
     return await this.model.find({ gameId: gameId }).exec();
   }
 
+    /**
+   * Get current player's info, including partner details if any.
+   * @param userId The current user's ID.
+   * @param gameId The game ID.
+   */
+    async getCurrentPlayerInfo(userId: MongoId, gameId: MongoId): Promise<{ hasPartner: boolean; partnerName?: string }> {
+      const currentPlayer = await this.find(userId, gameId);
+      if (!currentPlayer) {
+        throw new PlayerNotFoundException(userId);
+      }
+  
+      if (currentPlayer.teamPartnerId) {
+        const partnerPlayer = await this.findById(new MongoId(currentPlayer.teamPartnerId));
+        if (!partnerPlayer) {
+          throw new PlayerNotFoundException(currentPlayer.teamPartnerId);
+        }
+        const partnerUser = await this.usr.findById(partnerPlayer.userId);
+        if (!partnerUser) {
+          throw new PlayerNotFoundException(partnerPlayer.userId);
+        }
+        return { hasPartner: true, partnerName: `${partnerUser.firstName} ${partnerUser.surname}` };
+      }
+  
+      return { hasPartner: false };
+    }
+
   async inviteTeam(
     userId: MongoId,
     gameId: MongoId,
