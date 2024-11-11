@@ -34,9 +34,9 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     loadInvitedBy();
   }, [gameInfo.gameId]);
 
-  const handleInvite = async (playerId: string) => {
-    await inviteTeam(gameInfo.gameId, playerId);
-    setInvites([...invites, playerId]);
+  const handleInvite = async (userId: string) => { // Change parameter name to userId
+    await inviteTeam(gameInfo.gameId, userId); // Pass userId instead of playerId
+    setInvites([...invites, userId]);
   };
 
   return (
@@ -64,10 +64,10 @@ function InviteItem({
   player: LeaderboardPlayerInfo;
   invites: string[];
   invitedBy: string[];
-  onInvite: (playerId: string) => void;
+  onInvite: (userId: string) => void; // Update type
 }) {
-  const isAlreadyInvited = invites.includes(player.playerId);
-  const hasInvitedByRequester = invitedBy.includes(player.playerId);
+  const isAlreadyInvited = invites.includes(player.userId); // Use userId
+  const hasInvitedByRequester = invitedBy.includes(player.userId); // Use userId
 
   return (
     <Card
@@ -88,7 +88,7 @@ function InviteItem({
           </Stack>
         </HStack>
         <Button
-          onClick={() => onInvite(player.playerId)}
+          onClick={() => onInvite(player.userId)} // Pass userId
           isDisabled={isAlreadyInvited || hasInvitedByRequester}
           colorScheme="blue"
           variant="solid"
