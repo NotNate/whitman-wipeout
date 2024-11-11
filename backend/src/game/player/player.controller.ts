@@ -63,11 +63,11 @@ export class PlayerController {
   }
 
   /**
-   * Get all players in the game except the current user, returning LeaderboardPlayerInfo.
+   * Get all players in the game except the current user with LeaderboardPlayerInfo[]
    */
-  @Post('getAllPlayersExcept')
+  @Post('getAllPlayersInfo')
   @UseGuards(JwtAuthGuard)
-  async getAllPlayersExcept(
+  async getAllPlayersInfo(
     @Req() req: Request,
     @QueryRequired('gameId') gameIdQuery: string,
   ): Promise<LeaderboardPlayerInfo[]> {

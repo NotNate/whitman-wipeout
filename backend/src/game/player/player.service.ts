@@ -4,6 +4,7 @@ import { GameService } from 'game/game.service';
 import { UserService } from 'user/user.service';
 import { MongoId } from 'utils/mongo';
 import { Player, PlayerRole, PlayerStatus } from './player.schema';
+import { User } from 'user/user.schema';
 import { Model } from 'mongoose';
 import { GameStatus } from 'game/game.schema';
 import {
@@ -169,78 +170,84 @@ export class PlayerService {
     return player.invitedBy;
   }
 
-/**
-   * Get all players in a game except the current user, returning LeaderboardPlayerInfo.
+  /**
+   * Get all players in a game except the current user and return LeaderboardPlayerInfo[]
    * @param currentUserId The ID of the current user.
    * @param gameId The game ID.
    */
-async getAllPlayersExcept(currentUserId: MongoId, gameId: MongoId): Promise<LeaderboardPlayerInfo[]> {
-  // Fetch all players in the game excluding the current user
-  const players = await this.model.find({ gameId, userId: { $ne: currentUserId } }).exec();
+  async getAllPlayersExcept(currentUserId: MongoId, gameId: MongoId): Promise<LeaderboardPlayerInfo[]> {
+    // Fetch all players except the current user
+    const players = await this.model.find({ gameId, userId: { $ne: currentUserId } }).exec();
 
-  // If there are no other players, return an empty array
-  if (!players.length) {
-    return [];
-  }
-
-  const playerIds = players.map(player => player.id);
-
-  // Aggregate kill counts and determine who killed whom
-  const countObjects = await this.model.aggregate([
-    {
-      $match: {
-        status: 'COMPLETE',
-        playerId: { $in: playerIds },
-      },
-    },
-    {
-      $group: {
-        _id: '$playerId',
-        count: { $sum: 1 },
-        killed: { $push: '$targetId' },
-      },
-    },
-  ]).exec();
-
-  const killCounts: { [key: string]: number } = {};
-  const killers: { [key: string]: string } = {};
-
-  countObjects.forEach(doc => {
-    killCounts[doc._id.toString()] = doc.count;
-    if (doc.killed) {
-      doc.killed.forEach((killedId: string) => {
-        killers[killedId.toString()] = doc._id.toString();
-      });
+    if (!players || players.length === 0) {
+      return [];
     }
-  });
 
-  // Create a map of players for quick lookup
-  const playerMap: { [key: string]: Player } = {};
-  players.forEach(player => {
-    playerMap[player.id] = player;
-  });
+    // Extract player IDs and user IDs
+    const playerIds = players.map(player => player.id);
+    const userIds = players.map(player => player.userId);
 
-  // Construct LeaderboardPlayerInfo array
-  const allInfo: LeaderboardPlayerInfo[] = players.map(player => {
-    const killerId = killers[player.id];
-    const killerPlayer = killerId ? playerMap[killerId] : undefined;
+    // Fetch user details
+    const usersArray = await this.usr.findByIds(userIds); // Assumes findByIds returns User[]
+    const users: { [key: string]: User } = {};
+    usersArray.forEach(user => {
+      users[user.id] = user;
+    });
 
-    const info: LeaderboardPlayerInfo = {
-      playerId: player.id,
-      userId: player.userId.toString(),
-      teamPartnerId: player.teamPartnerId ? player.teamPartnerId.toString() : '',
-      name: player.name, // Assuming 'name' is a field in the Player schema
-      kills: killCounts[player.id.toString()] ?? 0,
-      alive: player.status === PlayerStatus.ALIVE,
-      safe: player.status === PlayerStatus.SAFE,
-      killedBy: killerPlayer ? killerPlayer.name : undefined,
-    };
+    // Fetch kill counts and killers using aggregation
+    const countObjects = await this.model.aggregate([
+      {
+        $match: {
+          status: 'COMPLETE',
+          playerId: { $in: playerIds.map(pid => new MongoId(pid)) },
+        },
+      },
+      {
+        $group: {
+          _id: '$playerId',
+          count: { $sum: 1 },
+          killed: { $push: '$targetId' },
+        },
+      },
+    ]).exec();
 
-    return info;
-  });
+    const killCounts: { [key: string]: number } = {};
+    const killers: { [key: string]: string } = {};
 
-  return allInfo;
-}
+    countObjects.forEach(doc => {
+      killCounts[doc._id.toString()] = doc.count;
+      if (doc.killed) {
+        doc.killed.forEach((killedId: string) => {
+          killers[killedId.toString()] = doc._id.toString();
+        });
+      }
+    });
+
+    // Construct LeaderboardPlayerInfo[]
+    const allInfo: LeaderboardPlayerInfo[] = players.map(player => {
+      const user = users[player.userId.toString()];
+      const killerId = killers[player.id];
+      const killer = killerId ? users[killerId]?.firstName && users[killerId]?.surname
+        ? `${users[killerId].firstName} ${users[killerId].surname}`
+        : undefined
+        : undefined;
+
+      const info: LeaderboardPlayerInfo = {
+        playerId: player.id,
+        userId: player.userId.toString(),
+        teamPartnerId: player.teamPartnerId ? player.teamPartnerId.toString() : '',
+        name: user ? `${user.firstName} ${user.surname}` : 'Unknown',
+        kills: killCounts[player.id] ?? 0,
+        alive: player.status === PlayerStatus.ALIVE,
+        safe: player.status === PlayerStatus.SAFE,
+        killedBy: killer,
+      };
+
+      return info;
+    });
+
+    return allInfo;
+  }
 
   // TODO: Implement acceptInvite and rejectInvite
 }
