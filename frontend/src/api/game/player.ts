@@ -10,8 +10,8 @@ export const register = async (gameId: string) => {
 /**
  * Invite a player to be your team partner
  */
-export const inviteTeam = async (gameId: string, teamPartnerId: string) => {
-  await authPost(`/game/player/inviteTeam?gameId=${gameId}&teamPartnerId=${teamPartnerId}`);
+export const inviteTeam = async (gameId: string, userId: string) => { // Change parameter name
+  await authPost(`/game/player/inviteTeam?gameId=${gameId}&teamPartnerId=${userId}`);
 };
 
 /**
