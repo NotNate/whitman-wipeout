@@ -30,14 +30,14 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     loadData();
   }, [gameInfo.gameId]);
 
-  const handleInvite = async (userId: string) => {
+  const handleInvite = async (playerId: string) => {
     try {
-      await inviteTeam(gameInfo.gameId, userId);
+      await inviteTeam(gameInfo.gameId, playerId);
       // After inviting, re-fetch the invites
       const updatedInvites = await getInvites(gameInfo.gameId);
       setInvites(updatedInvites.map((id: string) => id.toString()));
     } catch (error) {
-      console.error(`Failed to invite user ${userId}:`, error);
+      console.error(`Failed to invite player ${playerId}:`, error);
       // Optionally, you can add error state and display a message to the user
     }
   };
@@ -67,7 +67,7 @@ function InviteItem({
   player: LeaderboardPlayerInfo;
   invites: string[];
   invitedBy: string[];
-  onInvite: (userId: string) => Promise<void>;
+  onInvite: (playerId: string) => Promise<void>; // Update the type
 }) {
   const [loading, setLoading] = useState(false);
   const isAlreadyInvited = invites.includes(player.userId);
@@ -76,7 +76,7 @@ function InviteItem({
   const handleClick = async () => {
     setLoading(true);
     try {
-      await onInvite(player.userId);
+      await onInvite(player.playerId);
     } catch (error) {
       // Handle error if needed
     } finally {
