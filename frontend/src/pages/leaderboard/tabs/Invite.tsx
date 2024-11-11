@@ -18,9 +18,13 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
           getInvitedBy(gameInfo.gameId),
         ]);
 
+        console.log("All Players:", allPlayers);
+        console.log("Invites:", inviteList);
+        console.log("Invited By:", invitedByList);
+
         setPlayers(allPlayers);
-        setInvites(inviteList.map((id: string) => id.toString()));
-        setInvitedBy(invitedByList.map((id: string) => id.toString()));
+        setInvites(inviteList); // No need to map to string if backend returns strings
+        setInvitedBy(invitedByList);
       } catch (error) {
         console.error('Failed to load invite data:', error);
         // Optionally, handle error state here
@@ -35,7 +39,8 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
       await inviteTeam(gameInfo.gameId, playerId);
       // After inviting, re-fetch the invites
       const updatedInvites = await getInvites(gameInfo.gameId);
-      setInvites(updatedInvites.map((id: string) => id.toString()));
+      setInvites(updatedInvites);
+      console.log("Updated Invites:", updatedInvites);
     } catch (error) {
       console.error(`Failed to invite player ${playerId}:`, error);
       // Optionally, you can add error state and display a message to the user
@@ -67,7 +72,7 @@ function InviteItem({
   player: LeaderboardPlayerInfo;
   invites: string[];
   invitedBy: string[];
-  onInvite: (playerId: string) => Promise<void>; // Update the type
+  onInvite: (playerId: string) => Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
   const isAlreadyInvited = invites.includes(player.userId);
@@ -78,7 +83,8 @@ function InviteItem({
     try {
       await onInvite(player.playerId);
     } catch (error) {
-      // Handle error if needed
+      console.error(`Failed to invite player ${player.playerId}:`, error);
+      // Optionally, handle error state here
     } finally {
       setLoading(false);
     }

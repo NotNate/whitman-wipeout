@@ -43,11 +43,11 @@ export class PlayerController {
   async getInvites(
     @Req() req: Request,
     @QueryRequired('gameId') gameIdQuery: string,
-  ) {
+  ): Promise<string[]> {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
     const invites = await this.plyr.getInvites(userId, gameId);
-    return invites;
+    return invites.map(id => id.toString());
   }
 
   @Post('getInvitedBy')
@@ -55,12 +55,13 @@ export class PlayerController {
   async getInvitedBy(
     @Req() req: Request,
     @QueryRequired('gameId') gameIdQuery: string,
-  ) {
+  ): Promise<string[]> {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
     const invitedBy = await this.plyr.getInvitedBy(userId, gameId);
-    return invitedBy;
+    return invitedBy.map(id => id.toString());
   }
+
 
   /**
    * Get all players in the game except the current user with LeaderboardPlayerInfo[]
