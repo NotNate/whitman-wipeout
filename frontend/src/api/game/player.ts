@@ -37,5 +37,5 @@ export const getInvitedBy = async (gameId: string): Promise<string[]> => {
  */
 export const getAllPlayers = async (gameId: string): Promise<LeaderboardPlayerInfo[]> => {
   const response = await authPost(`/game/player/getAllPlayers?gameId=${gameId}`);
-  return response.data as LeaderBoardPlayerInfo[];
+  return response.data as LeaderboardPlayerInfo[];
 };
