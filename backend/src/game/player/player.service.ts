@@ -118,37 +118,34 @@ export class PlayerService {
     return await this.model.find({ gameId: gameId }).exec();
   }
 
-// backend/src/game/player/player.service.ts
-
-async inviteTeam(
-  userId: MongoId,
-  gameId: MongoId,
-  teamPartnerPlayerId: MongoId,
-) {
-  const user = await this.find(userId, gameId);
-  const teamPartner = await this.findById(teamPartnerPlayerId);
-
-  if (!teamPartner) {
-    throw new PlayerNotFoundException(teamPartnerPlayerId);
+  async inviteTeam(
+    userId: MongoId,
+    gameId: MongoId,
+    teamPartnerPlayerId: MongoId,
+  ) {
+    const user = await this.find(userId, gameId);
+    const teamPartner = await this.findById(teamPartnerPlayerId);
+  
+    if (!teamPartner) {
+      throw new PlayerNotFoundException(teamPartnerPlayerId);
+    }
+  
+    if (!user) {
+      throw new PlayerNotFoundException(userId);
+    }
+  
+    // Use the `equals` method to compare ObjectIds
+    if (teamPartner.invitedBy.some(id => id.equals(user.userId))) {
+      throw new Error('Team partner has already been invited by this user.');
+    }
+  
+    // Push MongoId objects directly without converting to strings
+    teamPartner.invitedBy.push(user.userId);
+    await teamPartner.save();
+  
+    user.invited.push(teamPartner.userId);
+    await user.save();
   }
-
-  if (!user) {
-    throw new PlayerNotFoundException(userId);
-  }
-
-  // Check if the team partner has already been invited by the user
-  if (teamPartner.invitedBy.includes(user.userId.toString())) { // Ensure it's a string comparison
-    throw new Error('Team partner has already been invited by this user.');
-  }
-
-  // Proceed to update lists using user IDs
-  teamPartner.invitedBy.push(user.userId.toString()); // Store as string
-  await teamPartner.save();
-
-  user.invited.push(teamPartner.userId.toString()); // Store as string
-  await user.save();
-}
-
 
   async getInvites(userId: MongoId, gameId: MongoId): Promise<string[]> {
     const player = await this.find(userId, gameId);
@@ -164,7 +161,7 @@ async inviteTeam(
       }
     }
   
-    // Convert MongoId to string
+    // Convert MongoId to string before returning
     return player.invited.map(id => id.toString());
   }
   
@@ -182,7 +179,7 @@ async inviteTeam(
       }
     }
   
-    // Convert MongoId to string
+    // Convert MongoId to string before returning
     return player.invitedBy.map(id => id.toString());
   }
 

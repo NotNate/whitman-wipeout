@@ -47,9 +47,9 @@ export class PlayerController {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
     const invites = await this.plyr.getInvites(userId, gameId);
-    return invites.map(id => id.toString());
+    return invites;
   }
-
+  
   @Post('getInvitedBy')
   @UseGuards(JwtAuthGuard)
   async getInvitedBy(
@@ -59,7 +59,7 @@ export class PlayerController {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
     const invitedBy = await this.plyr.getInvitedBy(userId, gameId);
-    return invitedBy.map(id => id.toString());
+    return invitedBy;
   }
 
 

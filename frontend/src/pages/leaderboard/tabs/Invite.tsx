@@ -17,20 +17,19 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
           getInvites(gameInfo.gameId),
           getInvitedBy(gameInfo.gameId),
         ]);
-
+  
         console.log("All Players:", allPlayers);
         console.log("Invites:", inviteList);
         console.log("Invited By:", invitedByList);
-
+  
         setPlayers(allPlayers);
-        setInvites(inviteList); // No need to map to string if backend returns strings
+        setInvites(inviteList);
         setInvitedBy(invitedByList);
       } catch (error) {
         console.error('Failed to load invite data:', error);
-        // Optionally, handle error state here
       }
     };
-
+  
     loadData();
   }, [gameInfo.gameId]);
 
