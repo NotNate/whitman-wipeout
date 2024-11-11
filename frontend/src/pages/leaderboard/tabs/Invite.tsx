@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Avatar, Badge, Stack, Text, Flex, Spinner, useToast } from "@chakra-ui/react";
+import { Avatar, Badge, Button, Card, Box, HStack, Stack, Text, Flex, Spinner, useToast } from "@chakra-ui/react";
 import { 
   inviteTeam, 
   getInvites, 
