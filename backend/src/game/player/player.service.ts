@@ -168,12 +168,90 @@ export class PlayerService {
   }
 
 /**
- * Get all players in a game except the current user.
+ * Get all players in a game except the current user, including leaderboard data.
  * @param currentUserId The ID of the current user.
  * @param gameId The game ID.
  */
-async getAllPlayersExcept(currentUserId: MongoId, gameId: MongoId): Promise<Player[]> {
-  return await this.model.find({ gameId, userId: { $ne: currentUserId } }).exec();
+async getAllPlayersExcept(
+  currentUserId: MongoId,
+  gameId: MongoId
+): Promise<LeaderboardPlayerInfo[]> {
+  const game = await this.gme.findById(gameId);
+  const players: { [key: string]: Player } = {};
+
+  // Get players for the game excluding the current user
+  (await this.plyr.findByGame(gameId)).forEach((player) => {
+    if (player.userId.toString() !== currentUserId.toString()) {
+      players[player.id] = player;
+    }
+  });
+  const playerIds = Object.keys(players).map((pid) => new MongoId(pid));
+
+  // Get all users associated with these players
+  const userIds = Object.values(players).map((p) => p.userId);
+  const users: { [key: string]: User } = {};
+  (await this.usr.findByIds(userIds)).forEach(
+    (user) => (users[user.id] = user),
+  );
+
+  // Grab the number of kills for each player
+  const countObjects = await this.model
+    .aggregate([
+      {
+        $match: {
+          status: 'COMPLETE',
+          playerId: { $in: playerIds },
+        },
+      },
+      {
+        $group: {
+          _id: '$playerId',
+          count: {
+            $sum: 1,
+          },
+          killed: {
+            $push: '$targetId',
+          },
+        },
+      },
+    ])
+    .exec();
+
+  const killCounts: { [key: string]: number } = {};
+  countObjects.forEach((doc) => {
+    killCounts[doc._id.toString()] = doc.count;
+  });
+
+  const killers: { [key: string]: string } = {};
+  countObjects.forEach((doc) => {
+    if (doc.killed) {
+      doc.killed.forEach((killedId) => {
+        killers[killedId.toString()] = doc._id.toString();
+      });
+    }
+  });
+
+  const allInfo: LeaderboardPlayerInfo[] = [];
+  Object.values(players).forEach((p) => {
+    const user = users[p.userId.toString()];
+    const killer = killers[p.id]
+      ? users[players[killers[p.id]].userId.toString()]
+      : undefined;
+    const info: LeaderboardPlayerInfo = {
+      playerId: p.id,
+      userId: p.userId.toString(),
+      teamPartnerId: p.teamPartnerId ? p.teamPartnerId.toString() : '',
+      name: `${user.firstName} ${user.surname}`,
+      kills: killCounts[p.id] ?? 0,
+      alive: p.status === PlayerStatus.ALIVE,
+      safe: p.status === PlayerStatus.SAFE,
+      killedBy: killer ? `${killer.firstName} ${killer.surname}` : undefined,
+    };
+
+    allInfo.push(info);
+  });
+
+  return allInfo;
 }
 
   // TODO: Implement acceptInvite and rejectInvite

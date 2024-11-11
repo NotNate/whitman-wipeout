@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Avatar, Badge, Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
 import { inviteTeam, getInvites, getInvitedBy, getAllPlayers } from "api/game/player";
-import { fetchLeaderboard } from "api/game/target";
 import { LeaderboardPlayerInfo } from "shared/api/game/player";
 import { GameInfo } from "shared/api/game";
 
