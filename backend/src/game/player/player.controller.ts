@@ -59,4 +59,19 @@ export class PlayerController {
     const invitedBy = await this.plyr.getInvitedBy(userId, gameId);
     return invitedBy;
   }
+
+  /**
+   * Get all players in the game except the current user.
+   */
+  @Post('getAllPlayers')
+  @UseGuards(JwtAuthGuard)
+  async getAllPlayers(
+    @Req() req: Request,
+    @QueryRequired('gameId') gameIdQuery: string,
+  ) {
+    const userId = getUserIdFromRequest(req);
+    const gameId = new MongoId(gameIdQuery);
+    const players = await this.plyr.getAllPlayersExcept(userId, gameId);
+    return players;
+  }
 }

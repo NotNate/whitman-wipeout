@@ -1,4 +1,6 @@
 import { authPost } from "../../utils/http";
+import { LeaderboardPlayerInfo } from 'shared/api/game/player';
+
 
 /**
  * Register a player for the given game
@@ -28,4 +30,12 @@ export const getInvites = async (gameId: string): Promise<string[]> => {
 export const getInvitedBy = async (gameId: string): Promise<string[]> => {
   const response = await authPost(`/game/player/getInvitedBy?gameId=${gameId}`);
   return response.data as string[];
+};
+
+/**
+ * Get all players in the game except the current user.
+ */
+export const getAllPlayers = async (gameId: string): Promise<LeaderboardPlayerInfo[]> => {
+  const response = await authPost(`/game/player/getAllPlayers?gameId=${gameId}`);
+  return response.data as LeaderBoardPlayerInfo[];
 };

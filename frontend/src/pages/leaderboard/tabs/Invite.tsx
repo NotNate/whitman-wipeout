@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Avatar, Badge, Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
-import { inviteTeam, getInvites, getInvitedBy } from "api/game/player";
+import { inviteTeam, getInvites, getInvitedBy, getAllPlayers } from "api/game/player";
 import { fetchLeaderboard } from "api/game/target";
 import { LeaderboardPlayerInfo } from "shared/api/game/player";
 import { GameInfo } from "shared/api/game";
@@ -12,16 +12,17 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
 
   useEffect(() => {
     const loadPlayers = async () => {
-      const allPlayers = await fetchLeaderboard(); // Fetch all players in the game
-      const filteredPlayers = allPlayers.filter(
-        (player) => !player.teamPartnerId || player.teamPartnerId === '' // Exclude players who already have a partner
-      );
-      setPlayers(filteredPlayers);
+      const allPlayers = await getAllPlayers(gameInfo.gameId); // Use getAllPlayers instead of fetchLeaderboard
+      setPlayers(allPlayers);
     };
 
     const loadInvites = async () => {
-      const inviteList = await getInvites(gameInfo.gameId);
-      setInvites(inviteList.map((id: string) => id.toString()));
+      try {
+        const inviteList = await getInvites(gameInfo.gameId);
+        setInvites(inviteList.map((id: string) => id.toString()));
+      } catch (error) {
+        console.error('Failed to load invites:', error);
+      }
     };
 
     const loadInvitedBy = async () => {
@@ -69,7 +70,7 @@ function InviteItem({
   player: LeaderboardPlayerInfo;
   invites: string[];
   invitedBy: string[];
-  onInvite: (userId: string) => Promise<void>; // Update type to return Promise
+  onInvite: (userId: string) => Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
   const isAlreadyInvited = invites.includes(player.userId);
@@ -99,7 +100,7 @@ function InviteItem({
           <Avatar name={player.name} />
           <Stack>
             <Text fontWeight="bold">{player.name}</Text>
-            {hasInvitedByRequester && (
+            {(isAlreadyInvited || hasInvitedByRequester) && (
               <Badge colorScheme="blue">Already Invited</Badge>
             )}
           </Stack>
@@ -111,7 +112,7 @@ function InviteItem({
           colorScheme="blue"
           variant="solid"
         >
-          {isAlreadyInvited ? "Invited" : "Invite"}
+          {isAlreadyInvited || hasInvitedByRequester ? "Invited" : "Invite"}
         </Button>
       </HStack>
     </Card>

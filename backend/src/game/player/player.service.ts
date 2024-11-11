@@ -167,5 +167,14 @@ export class PlayerService {
     return player.invitedBy;
   }
 
+/**
+ * Get all players in a game except the current user.
+ * @param currentUserId The ID of the current user.
+ * @param gameId The game ID.
+ */
+async getAllPlayersExcept(currentUserId: MongoId, gameId: MongoId): Promise<Player[]> {
+  return await this.model.find({ gameId, userId: { $ne: currentUserId } }).exec();
+}
+
   // TODO: Implement acceptInvite and rejectInvite
 }
