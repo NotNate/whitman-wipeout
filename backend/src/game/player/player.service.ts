@@ -4,6 +4,7 @@ import { GameService } from 'game/game.service';
 import { UserService } from 'user/user.service';
 import { MongoId } from 'utils/mongo';
 import { Player, PlayerRole, PlayerStatus } from './player.schema';
+import { LeaderboardPlayerInfo } from 'shared/api/game/player';
 import { Model } from 'mongoose';
 import { GameStatus } from 'game/game.schema';
 import {
