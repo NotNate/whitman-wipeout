@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Avatar, Badge, Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
-import { inviteTeam, getInvites, getInvitedBy} from "api/game/player";
+import { inviteTeam, getInvites, getInvitedBy } from "api/game/player";
 import { fetchLeaderboard } from "api/game/target";
 import { LeaderboardPlayerInfo } from "shared/api/game/player";
 import { GameInfo } from "shared/api/game";
@@ -15,7 +15,7 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
       const allPlayers = await fetchLeaderboard(); // Fetch all players in the game
       const filteredPlayers = allPlayers.filter(
         (player) => !player.teamPartnerId || player.teamPartnerId === '' // Exclude players who already have a partner
-      );      
+      );
       setPlayers(filteredPlayers);
     };
 
@@ -23,11 +23,11 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
       const inviteList = await getInvites(gameInfo.gameId);
       setInvites(inviteList.map((id: string) => id.toString()));
     };
-    
+
     const loadInvitedBy = async () => {
       const invitedByList = await getInvitedBy(gameInfo.gameId);
       setInvitedBy(invitedByList.map((id: string) => id.toString()));
-    };    
+    };
 
     loadPlayers();
     loadInvites();
@@ -35,8 +35,13 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   }, [gameInfo.gameId]);
 
   const handleInvite = async (userId: string) => { // Change parameter name to userId
-    await inviteTeam(gameInfo.gameId, userId); // Pass userId instead of playerId
-    setInvites([...invites, userId]);
+    try {
+      await inviteTeam(gameInfo.gameId, userId); // Pass userId instead of playerId
+      setInvites((prevInvites) => [...prevInvites, userId]);
+    } catch (error) {
+      console.error(`Failed to invite user ${userId}:`, error);
+      // Optionally, you can add error state and display a message to the user
+    }
   };
 
   return (
@@ -64,10 +69,22 @@ function InviteItem({
   player: LeaderboardPlayerInfo;
   invites: string[];
   invitedBy: string[];
-  onInvite: (userId: string) => void; // Update type
+  onInvite: (userId: string) => Promise<void>; // Update type to return Promise
 }) {
-  const isAlreadyInvited = invites.includes(player.userId); // Use userId
-  const hasInvitedByRequester = invitedBy.includes(player.userId); // Use userId
+  const [loading, setLoading] = useState(false);
+  const isAlreadyInvited = invites.includes(player.userId);
+  const hasInvitedByRequester = invitedBy.includes(player.userId);
+
+  const handleClick = async () => {
+    setLoading(true);
+    try {
+      await onInvite(player.userId);
+    } catch (error) {
+      // Handle error if needed
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Card
@@ -88,12 +105,13 @@ function InviteItem({
           </Stack>
         </HStack>
         <Button
-          onClick={() => onInvite(player.userId)} // Pass userId
-          isDisabled={isAlreadyInvited || hasInvitedByRequester}
+          onClick={handleClick}
+          isDisabled={isAlreadyInvited || hasInvitedByRequester || loading}
+          isLoading={loading}
           colorScheme="blue"
           variant="solid"
         >
-          Invite
+          {isAlreadyInvited ? "Invited" : "Invite"}
         </Button>
       </HStack>
     </Card>

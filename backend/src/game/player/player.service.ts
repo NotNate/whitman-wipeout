@@ -131,6 +131,11 @@ export class PlayerService {
         throw new PlayerNotFoundException(userId);
     }
   
+    // Check if the team partner has already been invited by the user
+    if (teamPartner.invitedBy.includes(user.userId)) {
+        throw new Error('Team partner has already been invited by this user.');
+    }
+  
     // Proceed to update lists using user IDs
     teamPartner.invitedBy.push(user.userId);
     await teamPartner.save();
