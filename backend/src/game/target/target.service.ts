@@ -245,6 +245,12 @@ async killTarget(userId: MongoId, gameId: MongoId, targetId: MongoId) {
     { $set: { status: TargetStatus.EXPIRED } }
   ).exec();
 
+  // Expire all the target assignments of the killed player
+  await this.model.updateMany(
+    { playerId: killed.id, status: TargetStatus.PENDING },
+    { $set: { status: TargetStatus.EXPIRED } }
+  ).exec();
+
   // Expire the partner's target on the killed player, if applicable
   if (killedPartnerId) {
     const partnerTarget = await this.findByGameAndPlayerAndTarget(gameId, killedPartnerId, killedId);
