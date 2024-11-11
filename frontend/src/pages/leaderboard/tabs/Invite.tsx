@@ -1,6 +1,13 @@
-import { useEffect, useState } from "react";
-import { Avatar, Badge, Button, Card, HStack, Stack, Text, Flex } from "@chakra-ui/react";
-import { inviteTeam, getInvites, getInvitedBy, getAllPlayersInfo, acceptInvite, rejectInvite } from "api/game/player";
+import { useEffect, useState, useCallback } from "react";
+import { Avatar, Badge, Button, Card, HStack, Stack, Text, Flex, Spinner } from "@chakra-ui/react";
+import { 
+  inviteTeam, 
+  getInvites, 
+  getInvitedBy, 
+  getAllPlayersInfo, 
+  acceptInvite, 
+  rejectInvite 
+} from "api/game/player";
 import { LeaderboardPlayerInfo } from "shared/api/game/player";
 import { GameInfo } from "shared/api/game";
 
@@ -8,55 +15,60 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   const [players, setPlayers] = useState<LeaderboardPlayerInfo[]>([]);
   const [invites, setInvites] = useState<string[]>([]);
   const [invitedBy, setInvitedBy] = useState<string[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [allPlayers, inviteList, invitedByList] = await Promise.all([
-          getAllPlayersInfo(gameInfo.gameId),
-          getInvites(gameInfo.gameId),
-          getInvitedBy(gameInfo.gameId),
-        ]);
-
-        console.log("All Players:", allPlayers);
-        console.log("Invites:", inviteList);
-        console.log("Invited By:", invitedByList);
-
-        setPlayers(allPlayers);
-        setInvites(inviteList); // Already strings
-        setInvitedBy(invitedByList); // Already strings
-      } catch (error) {
-        console.error('Failed to load invite data:', error);
-        // Optionally, handle error state here
-      }
-    };
-
-    loadData();
-  }, [gameInfo.gameId]);
-
-  const handleInvite = async (playerId: string) => {
+  // Function to load data
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      await inviteTeam(gameInfo.gameId, playerId);
-      // After inviting, re-fetch the invites
-      const updatedInvites = await getInvites(gameInfo.gameId);
-      setInvites(updatedInvites);
-      console.log("Updated Invites:", updatedInvites);
-    } catch (error) {
-      console.error(`Failed to invite player ${playerId}:`, error);
-      // Optionally, you can add error state and display a message to the user
-    }
-  };
-
-  const handleAccept = async (inviterUserId: string) => {
-    try {
-      await acceptInvite(gameInfo.gameId, inviterUserId);
-      // After accepting, re-fetch the invites and invitedBy
-      const [updatedInvites, updatedInvitedBy] = await Promise.all([
+      const [allPlayers, inviteList, invitedByList] = await Promise.all([
+        getAllPlayersInfo(gameInfo.gameId),
         getInvites(gameInfo.gameId),
         getInvitedBy(gameInfo.gameId),
       ]);
-      setInvites(updatedInvites);
-      setInvitedBy(updatedInvitedBy);
+
+      console.log("All Players:", allPlayers);
+      console.log("Invites:", inviteList);
+      console.log("Invited By:", invitedByList);
+
+      // Filter players to only those without a teamPartnerId
+      const availablePlayers = allPlayers.filter(player => !player.teamPartnerId);
+
+      setPlayers(availablePlayers);
+      setInvites(inviteList); // Already strings
+      setInvitedBy(invitedByList); // Already strings
+    } catch (error) {
+      console.error('Failed to load invite data:', error);
+      // Optionally, handle error state here (e.g., show a toast notification)
+    } finally {
+      setLoading(false);
+    }
+  }, [gameInfo.gameId]);
+
+  // Load data on component mount and when gameId changes
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Handler for inviting a player
+  const handleInvite = async (playerId: string) => {
+    try {
+      await inviteTeam(gameInfo.gameId, playerId);
+      // After inviting, re-fetch all data
+      await loadData();
+      console.log("Updated Invites after inviting:", playerId);
+    } catch (error) {
+      console.error(`Failed to invite player ${playerId}:`, error);
+      // Optionally, handle error state here
+    }
+  };
+
+  // Handler for accepting an invite
+  const handleAccept = async (inviterUserId: string) => {
+    try {
+      await acceptInvite(gameInfo.gameId, inviterUserId);
+      // After accepting, re-fetch all data
+      await loadData();
       console.log("Accepted invite from:", inviterUserId);
     } catch (error) {
       console.error(`Failed to accept invite from ${inviterUserId}:`, error);
@@ -64,16 +76,12 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     }
   };
 
+  // Handler for rejecting an invite
   const handleReject = async (inviterUserId: string) => {
     try {
       await rejectInvite(gameInfo.gameId, inviterUserId);
-      // After rejecting, re-fetch the invites and invitedBy
-      const [updatedInvites, updatedInvitedBy] = await Promise.all([
-        getInvites(gameInfo.gameId),
-        getInvitedBy(gameInfo.gameId),
-      ]);
-      setInvites(updatedInvites);
-      setInvitedBy(updatedInvitedBy);
+      // After rejecting, re-fetch all data
+      await loadData();
       console.log("Rejected invite from:", inviterUserId);
     } catch (error) {
       console.error(`Failed to reject invite from ${inviterUserId}:`, error);
@@ -81,20 +89,33 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
     }
   };
 
+  // Display a loading spinner while data is being fetched
+  if (loading) {
+    return (
+      <Flex align="center" justify="center" height="100vh">
+        <Spinner size="xl" />
+      </Flex>
+    );
+  }
+
   return (
     <Stack alignItems="center" width="100%" padding={4}>
       <Text fontSize="2xl" fontWeight="bold">Invite Players</Text>
-      {players.map((player) => (
-        <InviteItem
-          key={player.playerId}
-          player={player}
-          invites={invites}
-          invitedBy={invitedBy}
-          onInvite={handleInvite}
-          onAccept={handleAccept}
-          onReject={handleReject}
-        />
-      ))}
+      {players.length === 0 ? (
+        <Text>No players available to invite.</Text>
+      ) : (
+        players.map((player) => (
+          <InviteItem
+            key={player.playerId}
+            player={player}
+            invites={invites}
+            invitedBy={invitedBy}
+            onInvite={handleInvite}
+            onAccept={handleAccept}
+            onReject={handleReject}
+          />
+        ))
+      )}
     </Stack>
   );
 }
