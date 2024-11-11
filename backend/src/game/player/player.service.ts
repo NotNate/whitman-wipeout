@@ -130,7 +130,7 @@ export class PlayerService {
       }
   
       if (currentPlayer.teamPartnerId) {
-        const partnerPlayer = await this.findById(new MongoId(currentPlayer.teamPartnerId));
+        const partnerPlayer = await this.findById(currentPlayer.teamPartnerId);
         if (!partnerPlayer) {
           throw new PlayerNotFoundException(currentPlayer.teamPartnerId);
         }
