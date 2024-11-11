@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Avatar, Badge, Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
-import { inviteTeam, getInvites, getInvitedBy, getAllPlayers } from "api/game/player";
+import { inviteTeam, getInvites, getInvitedBy, getAllPlayersExcept } from "api/game/player"; // Updated import
 import { LeaderboardPlayerInfo } from "shared/api/game/player";
 import { GameInfo } from "shared/api/game";
 
@@ -11,8 +11,13 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
 
   useEffect(() => {
     const loadPlayers = async () => {
-      const allPlayers = await getAllPlayers(gameInfo.gameId); // Use getAllPlayers instead of fetchLeaderboard
-      setPlayers(allPlayers);
+      try {
+        const allPlayers = await getAllPlayersExcept(gameInfo.gameId); // Use getAllPlayersExcept
+        setPlayers(allPlayers);
+      } catch (error) {
+        console.error('Failed to load players:', error);
+        // Optionally, handle error state here
+      }
     };
 
     const loadInvites = async () => {
@@ -21,23 +26,34 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
         setInvites(inviteList.map((id: string) => id.toString()));
       } catch (error) {
         console.error('Failed to load invites:', error);
+        // Optionally, handle error state here
       }
     };
 
     const loadInvitedBy = async () => {
-      const invitedByList = await getInvitedBy(gameInfo.gameId);
-      setInvitedBy(invitedByList.map((id: string) => id.toString()));
+      try {
+        const invitedByList = await getInvitedBy(gameInfo.gameId);
+        setInvitedBy(invitedByList.map((id: string) => id.toString()));
+      } catch (error) {
+        console.error('Failed to load invitedBy:', error);
+        // Optionally, handle error state here
+      }
     };
 
-    loadPlayers();
-    loadInvites();
-    loadInvitedBy();
+    // Load all data concurrently
+    const loadData = async () => {
+      await Promise.all([loadPlayers(), loadInvites(), loadInvitedBy()]);
+    };
+
+    loadData();
   }, [gameInfo.gameId]);
 
-  const handleInvite = async (userId: string) => { // Change parameter name to userId
+  const handleInvite = async (userId: string) => { // Parameter name already userId
     try {
-      await inviteTeam(gameInfo.gameId, userId); // Pass userId instead of playerId
-      setInvites((prevInvites) => [...prevInvites, userId]);
+      await inviteTeam(gameInfo.gameId, userId);
+      // After inviting, re-fetch the invites
+      const updatedInvites = await getInvites(gameInfo.gameId);
+      setInvites(updatedInvites.map((id: string) => id.toString()));
     } catch (error) {
       console.error(`Failed to invite user ${userId}:`, error);
       // Optionally, you can add error state and display a message to the user

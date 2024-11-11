@@ -35,7 +35,7 @@ export const getInvitedBy = async (gameId: string): Promise<string[]> => {
 /**
  * Get all players in the game except the current user.
  */
-export const getAllPlayers = async (gameId: string): Promise<LeaderboardPlayerInfo[]> => {
-  const response = await authPost(`/game/player/getAllPlayers?gameId=${gameId}`);
+export const getAllPlayersExcept = async (gameId: string): Promise<LeaderboardPlayerInfo[]> => {
+  const response = await authPost(`/game/player/getAllPlayersExcept?gameId=${gameId}`);
   return response.data as LeaderboardPlayerInfo[];
 };

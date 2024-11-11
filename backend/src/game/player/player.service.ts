@@ -4,7 +4,6 @@ import { GameService } from 'game/game.service';
 import { UserService } from 'user/user.service';
 import { MongoId } from 'utils/mongo';
 import { Player, PlayerRole, PlayerStatus } from './player.schema';
-import { LeaderboardPlayerInfo } from 'shared/api/game/player';
 import { Model } from 'mongoose';
 import { GameStatus } from 'game/game.schema';
 import {
@@ -12,6 +11,8 @@ import {
   GameStatusNotValidException,
   PlayerNotFoundException,
 } from 'utils/exceptions';
+
+import { LeaderboardPlayerInfo } from 'shared/api/game/player';
 
 @Injectable()
 export class PlayerService {
@@ -169,87 +170,73 @@ export class PlayerService {
   }
 
 /**
- * Get all players in a game except the current user, including leaderboard data.
- * @param currentUserId The ID of the current user.
- * @param gameId The game ID.
- */
-async getAllPlayersExcept(
-  currentUserId: MongoId,
-  gameId: MongoId
-): Promise<LeaderboardPlayerInfo[]> {
-  const game = await this.gme.findById(gameId);
-  const players: { [key: string]: Player } = {};
+   * Get all players in a game except the current user, returning LeaderboardPlayerInfo.
+   * @param currentUserId The ID of the current user.
+   * @param gameId The game ID.
+   */
+async getAllPlayersExcept(currentUserId: MongoId, gameId: MongoId): Promise<LeaderboardPlayerInfo[]> {
+  // Fetch all players in the game excluding the current user
+  const players = await this.model.find({ gameId, userId: { $ne: currentUserId } }).exec();
 
-  // Get players for the game excluding the current user
-  (await this.plyr.findByGame(gameId)).forEach((player) => {
-    if (player.userId.toString() !== currentUserId.toString()) {
-      players[player.id] = player;
-    }
-  });
-  const playerIds = Object.keys(players).map((pid) => new MongoId(pid));
+  // If there are no other players, return an empty array
+  if (!players.length) {
+    return [];
+  }
 
-  // Get all users associated with these players
-  const userIds = Object.values(players).map((p) => p.userId);
-  const users: { [key: string]: User } = {};
-  (await this.usr.findByIds(userIds)).forEach(
-    (user) => (users[user.id] = user),
-  );
+  const playerIds = players.map(player => player.id);
 
-  // Grab the number of kills for each player
-  const countObjects = await this.model
-    .aggregate([
-      {
-        $match: {
-          status: 'COMPLETE',
-          playerId: { $in: playerIds },
-        },
+  // Aggregate kill counts and determine who killed whom
+  const countObjects = await this.model.aggregate([
+    {
+      $match: {
+        status: 'COMPLETE',
+        playerId: { $in: playerIds },
       },
-      {
-        $group: {
-          _id: '$playerId',
-          count: {
-            $sum: 1,
-          },
-          killed: {
-            $push: '$targetId',
-          },
-        },
+    },
+    {
+      $group: {
+        _id: '$playerId',
+        count: { $sum: 1 },
+        killed: { $push: '$targetId' },
       },
-    ])
-    .exec();
+    },
+  ]).exec();
 
   const killCounts: { [key: string]: number } = {};
-  countObjects.forEach((doc) => {
-    killCounts[doc._id.toString()] = doc.count;
-  });
-
   const killers: { [key: string]: string } = {};
-  countObjects.forEach((doc) => {
+
+  countObjects.forEach(doc => {
+    killCounts[doc._id.toString()] = doc.count;
     if (doc.killed) {
-      doc.killed.forEach((killedId) => {
+      doc.killed.forEach((killedId: string) => {
         killers[killedId.toString()] = doc._id.toString();
       });
     }
   });
 
-  const allInfo: LeaderboardPlayerInfo[] = [];
-  Object.values(players).forEach((p) => {
-    const user = users[p.userId.toString()];
-    const killer = killers[p.id]
-      ? users[players[killers[p.id]].userId.toString()]
-      : undefined;
+  // Create a map of players for quick lookup
+  const playerMap: { [key: string]: Player } = {};
+  players.forEach(player => {
+    playerMap[player.id] = player;
+  });
+
+  // Construct LeaderboardPlayerInfo array
+  const allInfo: LeaderboardPlayerInfo[] = players.map(player => {
+    const killerId = killers[player.id];
+    const killerPlayer = killerId ? playerMap[killerId] : undefined;
+
     const info: LeaderboardPlayerInfo = {
-      playerId: p.id,
-      userId: p.userId.toString(),
-      teamPartnerId: p.teamPartnerId ? p.teamPartnerId.toString() : '',
-      name: `${user.firstName} ${user.surname}`,
-      kills: killCounts[p.id] ?? 0,
-      alive: p.status === PlayerStatus.ALIVE,
-      safe: p.status === PlayerStatus.SAFE,
-      killedBy: killer ? `${killer.firstName} ${killer.surname}` : undefined,
+      playerId: player.id,
+      userId: player.userId.toString(),
+      teamPartnerId: player.teamPartnerId ? player.teamPartnerId.toString() : '',
+      name: player.name, // Assuming 'name' is a field in the Player schema
+      kills: killCounts[player.id.toString()] ?? 0,
+      alive: player.status === PlayerStatus.ALIVE,
+      safe: player.status === PlayerStatus.SAFE,
+      killedBy: killerPlayer ? killerPlayer.name : undefined,
     };
 
-    allInfo.push(info);
+    return info;
   });
 
   return allInfo;

@@ -5,6 +5,8 @@ import { PlayerService } from './player.service';
 import { Request } from 'express';
 import { MongoId } from 'utils/mongo';
 import { QueryRequired } from 'utils/decorators';
+import { LeaderboardPlayerInfo } from 'shared/api/game/player';
+
 
 @Controller('game/player')
 export class PlayerController {
@@ -61,17 +63,17 @@ export class PlayerController {
   }
 
   /**
-   * Get all players in the game except the current user.
+   * Get all players in the game except the current user, returning LeaderboardPlayerInfo.
    */
-  @Post('getAllPlayers')
+  @Post('getAllPlayersExcept')
   @UseGuards(JwtAuthGuard)
-  async getAllPlayers(
+  async getAllPlayersExcept(
     @Req() req: Request,
     @QueryRequired('gameId') gameIdQuery: string,
-  ) {
+  ): Promise<LeaderboardPlayerInfo[]> {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
-    const players = await this.plyr.getAllPlayersExcept(userId, gameId);
-    return players;
+    const playersInfo = await this.plyr.getAllPlayersExcept(userId, gameId);
+    return playersInfo;
   }
 }
