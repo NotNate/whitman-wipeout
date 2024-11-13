@@ -41,7 +41,7 @@ function TargetAssignment() {
         {!error ? (
             <>
             <Text as="span" fontWeight="bold">
-              Your goal is to splash:{" "}
+              Your goal is to collect the Splash Points from:{" "}
             </Text>
             <Text as="span"> {target?.name} </Text>
             {target?.safe && (
