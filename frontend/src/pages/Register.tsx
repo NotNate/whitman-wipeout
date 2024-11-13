@@ -53,10 +53,8 @@ function Register() {
             {gameInfo.name.toUpperCase()}.
           </Text>
           <Text color="blue.800" fontWeight="bold" align="center" width="400px">
-            By clicking the button below, you recognize you will be entered in a
-            fearsome battle for victory, and that friendships may be broken,
-            souls destroyed, and hopes crushed in the process. Proceed with
-            caution.
+            By clicking the button below, you recognize and accept that you have read the rules clearly, and agree to abide by them.
+            Failure to do so may result in disqualification from the game.
           </Text>
           <Button
             width="400px"
