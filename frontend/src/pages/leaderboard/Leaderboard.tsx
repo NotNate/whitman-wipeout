@@ -65,7 +65,6 @@ function Leaderboard() {
         <Tab>Leaderboard</Tab>
         <Tab>All Targets</Tab>
         <Tab>Safety List</Tab>
-        <Tab>Rules</Tab>
       </TabList>
       <TabPanels>
         <TabPanel>
@@ -79,11 +78,6 @@ function Leaderboard() {
             <SafetyList />
           </Stack>
           </TabPanel>
-        <TabPanel>
-          <Stack alignItems="center" width="100%">
-            <Rules />
-          </Stack>
-        </TabPanel>
       </TabPanels>
     </Tabs>
   );
@@ -93,9 +87,8 @@ function Leaderboard() {
     <Tabs variant="soft-rounded" colorScheme="blue">
       <TabList>
         <Tab>Leaderboard</Tab>
-        <Tab>Your Target</Tab>
+        <Tab>Your Goal</Tab>
         <Tab>Invites</Tab>
-        <Tab>Rules</Tab>
       </TabList>
       <TabPanels>
         <TabPanel>
@@ -109,11 +102,6 @@ function Leaderboard() {
         <TabPanel>
           <Stack alignItems="center" width="100%">
             {gameInfo && <Invite gameInfo={gameInfo} />}
-          </Stack>
-        </TabPanel>
-        <TabPanel>
-          <Stack alignItems="center" width="100%">
-            <Rules />
           </Stack>
         </TabPanel>
       </TabPanels>
@@ -182,7 +170,7 @@ function LeaderboardItem({
             </Text>
             <Box mt="-4">
               <Text as="span" fontWeight="bold">
-                Eliminations:
+                Splash Points:
               </Text>
               <Text as="span"> {info.kills}</Text>
             </Box>

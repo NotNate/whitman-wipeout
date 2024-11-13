@@ -41,19 +41,19 @@ function TargetAssignment() {
         {!error ? (
             <>
             <Text as="span" fontWeight="bold">
-              Your target:{" "}
+              Your goal is to splash:{" "}
             </Text>
             <Text as="span"> {target?.name} </Text>
             {target?.safe && (
               <Text color="green.500" fontWeight="bold" mt={2}>
-              Your target is safe right now
+              The team is safe right now.
               </Text>
             )}
             </>
         ) : (
           <>
             <Text as="span" fontWeight="bold">
-              Your target is not available.
+              Your goal is not available.
             </Text>
           </>
         )}
