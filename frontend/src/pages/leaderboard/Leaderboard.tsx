@@ -33,6 +33,7 @@ import TargetAssignment from "./tabs/TargetAssignment";
 import Rules from "./tabs/Rules";
 import SafetyList from "./admin/SafetyList";
 import { GameInfo } from "shared/api/game";
+import Invite from "./tabs/Invite";
 
 /**
  * The main page for the application. Displays the leaderboard and all relevant
@@ -93,7 +94,7 @@ function Leaderboard() {
       <TabList>
         <Tab>Leaderboard</Tab>
         <Tab>Your Target</Tab>
-        {/* <Tab>Safety</Tab> */}
+        <Tab>Invites</Tab>
         <Tab>Rules</Tab>
       </TabList>
       <TabPanels>
@@ -105,11 +106,11 @@ function Leaderboard() {
             <TargetAssignment />
           </Stack>
         </TabPanel>
-        {/* <TabPanel>
+        <TabPanel>
           <Stack alignItems="center" width="100%">
-            {gameInfo && <Safety gameInfo={gameInfo} />}
+            {gameInfo && <Invite gameInfo={gameInfo} />}
           </Stack>
-        </TabPanel> */}
+        </TabPanel>
         <TabPanel>
           <Stack alignItems="center" width="100%">
             <Rules />
