@@ -356,7 +356,7 @@ export class TargetService {
         // Handle the case where the eliminated team has no target
         // This could mean the killing team is now the last team
         // Check if the killing team is the last team remaining
-        const alivePlayers = await this.plyr.findByGameAndStatus(gameId, PlayerStatus.ALIVE);
+        const alivePlayers = await this.plyr.findByGameAndStatus(gameId, [PlayerStatus.ALIVE]);
   
         const aliveTeams = new Set<string>();
         for (const p of alivePlayers) {
@@ -472,7 +472,7 @@ async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId:
     const game = await this.gme.findById(gameId);
     const players: { [key: string]: Player } = {};
 
-    (await this.plyr.findByGame(gameId)).forEach(
+    (await this.plyr.findByGameAndStatus(gameId, [PlayerStatus.ALIVE, PlayerStatus.SAFE])).forEach(
       (player) => (players[player.id] = player),
     );
     const playerIds = Object.keys(players).map((pid) => new MongoId(pid));
