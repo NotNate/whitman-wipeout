@@ -12,7 +12,8 @@ import {
   Spinner, 
   useToast, 
   VStack, 
-  useBreakpointValue 
+  useBreakpointValue, 
+  StackDirection 
 } from "@chakra-ui/react";
 import { 
   inviteTeam, 
@@ -162,7 +163,7 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   // Display a loading spinner while data is being fetched
   if (loading) {
     return (
-      <Flex align="center" justify="center" height="100vh">
+      <Flex align="center" justify="center" height="50vh">
         <Spinner size="xl" />
       </Flex>
     );
@@ -171,7 +172,7 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   // If user has a partner, display the message
   if (hasPartner) {
     return (
-      <Flex align="center" justify="center" height="100vh" px={4}>
+      <Flex align="center" justify="center" height="50vh" px={4}>
         <Text fontSize={["lg", "2xl"]} fontWeight="bold" textAlign="center">
           You already have a partner: {partnerName}
         </Text>
@@ -228,7 +229,7 @@ function InviteItem({
   const isAlreadyInvited = invites.includes(player.userId);
 
   // Determine the layout direction based on screen size
-  const buttonStackDirection = useBreakpointValue({ base: "column", md: "row" });
+  const buttonStackDirection = useBreakpointValue<StackDirection>({ base: "column", md: "row" }) || "row";
   const buttonSpacing = useBreakpointValue({ base: 2, md: 4 });
   const buttonWidth = useBreakpointValue({ base: "100%", md: "auto" });
 
