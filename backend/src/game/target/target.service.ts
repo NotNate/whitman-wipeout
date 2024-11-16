@@ -278,27 +278,6 @@ export class TargetService {
     target.status = TargetStatus.COMPLETE;
     await target.save(); // Save the updated target assignment
 
-    // Expire all target assignments pointing to the killed player
-    await this.model.updateMany(
-      { targetId: killed.id, status: TargetStatus.PENDING },
-      { $set: { status: TargetStatus.EXPIRED } }
-    ).exec();
-
-    // Expire all the target assignments of the killed player
-    await this.model.updateMany(
-      { playerId: killed.id, status: TargetStatus.PENDING },
-      { $set: { status: TargetStatus.EXPIRED } }
-    ).exec();
-
-    // Expire the partner's target on the killed player, if applicable
-    if (killedPartnerId) {
-      const partnerTarget = await this.findByGameAndPlayerAndTarget(gameId, killedPartnerId, killedId);
-      if (partnerTarget) {
-        partnerTarget.status = TargetStatus.EXPIRED;
-        await partnerTarget.save(); // Save the expired partner target
-      }
-    }
-
     // Check if the entire opposing team is eliminated
     let isEntireTeamEliminated = false;
     if (killedPartnerId) {
@@ -314,65 +293,62 @@ export class TargetService {
       if (killedPartnerId) {
         eliminatedTeamIds.push(killedPartnerId);
       }
-  
+
       // Fetch the eliminated team's current target
       const eliminatedTeamTarget = await this.model.findOne({
         gameId: gameId,
         playerId: { $in: eliminatedTeamIds },
         status: TargetStatus.PENDING,
       }).exec();
-  
+
       const killingTeamIds: MongoId[] = [playerId];
       if (playerPartnerId) {
         killingTeamIds.push(playerPartnerId);
       }
-  
+
+      const newTargetAssignments: TargetDocument[] = [];
+
       if (eliminatedTeamTarget) {
         const newTargetId = eliminatedTeamTarget.targetId;
-  
+
         // Assign the killing team to target the eliminated team's target
-        const newTargetAssignments: TargetDocument[] = [];
-  
         for (const killerId of killingTeamIds) {
-          // Remove existing pending targets for the killing team
-          await this.model.deleteMany({
+          // Create new target assignment
+          const newTarget = new this.model({
             gameId: gameId,
             playerId: killerId,
+            targetId: newTargetId,
             status: TargetStatus.PENDING,
-          }).exec();
-  
-          // Create new target assignment
-          const newTarget = new this.model();
-          newTarget.gameId = gameId;
-          newTarget.playerId = killerId;
-          newTarget.targetId = newTargetId;
-          newTarget.status = TargetStatus.PENDING;
+          });
           newTargetAssignments.push(newTarget);
         }
-  
-        // Insert new target assignments
-        await this.model.insertMany(newTargetAssignments);
+
+        // Insert new target assignments first
+        if (newTargetAssignments.length > 0) {
+          await this.model.insertMany(newTargetAssignments);
+        }
       } else {
         // Handle the case where the eliminated team has no target
         // This could mean the killing team is now the last team
         // Check if the killing team is the last team remaining
-        const alivePlayers = await this.plyr.findByGameAndStatus(gameId, [PlayerStatus.ALIVE]);
-  
+        const alivePlayers = await this.plyr.findByGameAndStatus(gameId, [PlayerStatus.ALIVE, PlayerStatus.SAFE]);
+
         const aliveTeams = new Set<string>();
         for (const p of alivePlayers) {
           const teamId = p.teamPartnerId ? p.teamPartnerId.toString() : p.id.toString();
           aliveTeams.add(teamId);
         }
-  
-        // if (aliveTeams.size === 1) {
-        //   // The killing team is the only team left. The game is over.
-        //   game.status = GameStatus.FINISHED;
-        //   await game.save();
-  
-        //   // Optionally, notify players or perform end-of-game logic
-        // }
+
+        if (aliveTeams.size === 1) {
+          // The killing team is the only team left. The game is over.
+          game.status = GameStatus.FINISHED;
+          await game.save();
+
+          // Optionally, notify players or perform end-of-game logic
+        }
       }
-  
+
+      // Now, expire all target assignments pointing to the killed team members
       await this.model.updateMany(
         {
           gameId: gameId,
@@ -381,6 +357,27 @@ export class TargetService {
         },
         { $set: { status: TargetStatus.EXPIRED } }
       ).exec();
+    } else {
+      // If the entire team is not eliminated, expire all target assignments pointing to the killed player
+      await this.model.updateMany(
+        { targetId: killed.id, status: TargetStatus.PENDING },
+        { $set: { status: TargetStatus.EXPIRED } }
+      ).exec();
+
+      // Expire all the target assignments of the killed player
+      await this.model.updateMany(
+        { playerId: killed.id, status: TargetStatus.PENDING },
+        { $set: { status: TargetStatus.EXPIRED } }
+      ).exec();
+
+      // Expire the partner's target on the killed player, if applicable
+      if (killedPartnerId) {
+        const partnerTarget = await this.findByGameAndPlayerAndTarget(gameId, killedPartnerId, killedId);
+        if (partnerTarget) {
+          partnerTarget.status = TargetStatus.EXPIRED;
+          await partnerTarget.save(); // Save the expired partner target
+        }
+      }
     }
   }
 
