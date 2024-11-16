@@ -55,11 +55,12 @@ export class TargetService {
         status: TargetStatus.PENDING,
       })
       .exec();
-    if (!query) {
-      throw new TargetNotFoundException(gameId);
+  
+    if (!query || query.length === 0) {
+      throw new TargetNotFoundException(`No pending target found for player ${playerId} in game ${gameId}`);
     }
     return query[0];
-  }
+  }  
 
   async findByGameAndUser(gameId: MongoId, userId: MongoId): Promise<Target> {
     const player = await this.plyr.find(userId, gameId);
@@ -70,21 +71,35 @@ export class TargetService {
   async fetchTarget(gameId: MongoId, userId: MongoId): Promise<TargetTeamInfo> {
     const player = await this.plyr.find(userId, gameId);
     const playerId = new MongoId(player.id);
-
+  
     const game = await this.gme.findById(player.gameId);
-
+  
     if (player.status !== PlayerStatus.ALIVE && player.status !== PlayerStatus.SAFE) {
       throw new PlayerStatusNotValidException(playerId, player.status);
     }
-
+  
     if (game.status !== GameStatus.IN_PROGRESS) {
       throw new GameStatusNotValidException(player.gameId, game.status);
     }
-
-    const target = await this.findByGameAndPlayer(player.gameId, playerId);
+  
+    let target: Target;
+    try {
+      target = await this.findByGameAndPlayer(player.gameId, playerId);
+    } catch (e) {
+      if (e instanceof TargetNotFoundException) {
+        // Return an empty or special response indicating no target
+        return {
+          members: [],
+          message: 'No target available at the moment.',
+        };
+      } else {
+        throw e; // Re-throw other exceptions
+      }
+    }
+  
     const targetPlayer = await this.plyr.findById(target.targetId);
     const targetUser = await this.usr.findById(targetPlayer.userId);
-
+  
     // Fetch the target player's partner
     let targetPartnerInfo = null;
     if (targetPlayer.teamPartnerId) {
@@ -96,7 +111,7 @@ export class TargetService {
         status: targetPartner.status,
       };
     }
-
+  
     return {
       members: [
         {
@@ -291,55 +306,65 @@ export class TargetService {
       if (killedPartnerId) {
         eliminatedTeamIds.push(killedPartnerId);
       }
-
+  
       // Fetch the eliminated team's current target
       const eliminatedTeamTarget = await this.model.findOne({
         gameId: gameId,
         playerId: { $in: eliminatedTeamIds },
         status: TargetStatus.PENDING,
       }).exec();
-
+  
+      const killingTeamIds: MongoId[] = [playerId];
+      if (playerPartnerId) {
+        killingTeamIds.push(playerPartnerId);
+      }
+  
       if (eliminatedTeamTarget) {
         const newTargetId = eliminatedTeamTarget.targetId;
-
+  
         // Assign the killing team to target the eliminated team's target
-        const killingTeamIds: MongoId[] = [playerId];
-        if (playerPartnerId) {
-          killingTeamIds.push(playerPartnerId);
-        }
-
         const newTargetAssignments: TargetDocument[] = [];
-
+  
         for (const killerId of killingTeamIds) {
-          // Check if the killing team already has a target
-          const existingTarget = await this.model.findOne({
+          // Remove existing pending targets for the killing team
+          await this.model.deleteMany({
             gameId: gameId,
             playerId: killerId,
             status: TargetStatus.PENDING,
           }).exec();
-
-          if (existingTarget) {
-            // Update existing target
-            existingTarget.targetId = newTargetId;
-            newTargetAssignments.push(existingTarget);
-          } else {
-            // Create new target assignment
-            const newTarget = new this.model();
-            newTarget.gameId = gameId;
-            newTarget.playerId = killerId;
-            newTarget.targetId = newTargetId;
-            newTarget.status = TargetStatus.PENDING;
-            newTargetAssignments.push(newTarget);
-          }
+  
+          // Create new target assignment
+          const newTarget = new this.model();
+          newTarget.gameId = gameId;
+          newTarget.playerId = killerId;
+          newTarget.targetId = newTargetId;
+          newTarget.status = TargetStatus.PENDING;
+          newTargetAssignments.push(newTarget);
         }
-
-        // Insert or update target assignments
-        for (const assignment of newTargetAssignments) {
-          await assignment.save();
+  
+        // Insert new target assignments
+        await this.model.insertMany(newTargetAssignments);
+      } else {
+        // Handle the case where the eliminated team has no target
+        // This could mean the killing team is now the last team
+        // Check if the killing team is the last team remaining
+        const alivePlayers = await this.plyr.findByGameAndStatus(gameId, PlayerStatus.ALIVE);
+  
+        const aliveTeams = new Set<string>();
+        for (const p of alivePlayers) {
+          const teamId = p.teamPartnerId ? p.teamPartnerId.toString() : p.id.toString();
+          aliveTeams.add(teamId);
+        }
+  
+        if (aliveTeams.size === 1) {
+          // The killing team is the only team left. The game is over.
+          game.status = GameStatus.FINISHED;
+          await game.save();
+  
+          // Optionally, notify players or perform end-of-game logic
         }
       }
-
-      // Optionally, remove any expired or completed targets related to the eliminated team
+  
       await this.model.updateMany(
         {
           gameId: gameId,
@@ -349,14 +374,6 @@ export class TargetService {
         { $set: { status: TargetStatus.EXPIRED } }
       ).exec();
     }
-
-    // Optionally, update the game status if all teams are eliminated or other end conditions are met
-    // Example:
-    // const remainingTeams = await this.getRemainingTeams(gameId);
-    // if (remainingTeams.length === 1) {
-    //   game.status = GameStatus.FINISHED;
-    //   await game.save();
-    // }
   }
 
 // Helper function to find a specific target by game, player, and target
