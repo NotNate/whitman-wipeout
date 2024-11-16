@@ -6,7 +6,9 @@ import {
   Badge,
   Box,
   Card,
+  Flex,
   HStack,
+  VStack,
   Stack,
   Tab,
   TabList,
@@ -14,6 +16,7 @@ import {
   TabPanels,
   Tabs,
   Text,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 
 // State
@@ -58,7 +61,7 @@ function Leaderboard() {
 
   // List of all tabs for admins
   const adminTabs = (
-    <Tabs variant="soft-rounded" colorScheme="green">
+    <Tabs variant="soft-rounded" colorScheme="green" isFitted>
       <TabList>
         <Tab>Leaderboard</Tab>
         <Tab>All Targets</Tab>
@@ -82,7 +85,7 @@ function Leaderboard() {
 
   // List of all tabs for the player
   const playerTabs = (
-    <Tabs variant="soft-rounded" colorScheme="blue">
+    <Tabs variant="soft-rounded" colorScheme="blue" isFitted>
       <TabList>
         <Tab>Leaderboard</Tab>
         <Tab>Your Goal</Tab>
@@ -107,7 +110,11 @@ function Leaderboard() {
   );
 
   // NOTE: There are two different sets of tabs (one for admins and one for players)
-  return <Box m={4}>{gameInfo?.role === "ADMIN" ? adminTabs : playerTabs}</Box>;
+  return (
+    <Box m={[2, 4]} px={[2, 4]} py={[4, 6]}>
+      {gameInfo?.role === "ADMIN" ? adminTabs : playerTabs}
+    </Box>
+  );
 }
 
 function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
@@ -170,10 +177,13 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
   // Sort teams by teamKills descending
   const sortedTeams = teams.sort((a, b) => b.teamKills - a.teamKills);
 
+  // Determine layout direction based on screen size
+  const isMobile = useBreakpointValue({ base: true, md: false });
+
   return (
-    <Stack alignItems="center" width="100%">
+    <VStack alignItems="center" width="100%" spacing={[4, 6]}>
       {gameInfo && <EventCountdown gameInfo={gameInfo} />}
-      <Stack padding={4} alignItems="center" width="100%">
+      <VStack padding={[2, 4]} alignItems="center" width="100%" spacing={[4, 6]}>
         {sortedTeams.map((team, index) => (
           <TeamLeaderboardItem
             key={team.teamPlayers.map((p) => p.playerId).join("-")}
@@ -181,8 +191,8 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
             ranking={index + 1}
           />
         ))}
-      </Stack>
-    </Stack>
+      </VStack>
+    </VStack>
   );
 }
 
@@ -199,35 +209,45 @@ function TeamLeaderboardItem({
     <Card
       variant="outline"
       boxShadow={"lg"}
-      width="80%"
-      minWidth="500px"
-      padding={4}
-      mb={4}
-      sx={{ backgroundColor: "gray.50" }}
+      width={["95%", "80%"]}
+      minWidth={["auto", "500px"]}
+      padding={[3, 4]}
+      mb={[2, 4]}
+      bg={isSolo ? "yellow.50" : "gray.50"}
+      borderColor={isSolo ? "yellow.300" : "gray.200"}
     >
-      <Stack width="100%">
+      <VStack width="100%" alignItems="start" spacing={[2, 4]}>
         {/* Team Header */}
-        <HStack justifyContent="space-between" mb={4}>
-          <Text fontSize="lg" fontWeight="bold">
+        <Flex
+          direction={["column", "row"]}
+          justifyContent="space-between"
+          alignItems={["flex-start", "center"]}
+          width="100%"
+        >
+          <Text fontSize={["md", "lg"]} fontWeight="bold">
             {ranking}: Team Splash Points: {team.teamKills}
           </Text>
           {/* Optional: Add a team badge or other team-level indicators here */}
-        </HStack>
+        </Flex>
 
         {/* Solo Player Indicator */}
         {isSolo && (
-          <Text fontStyle="italic" color="gray.600" mb={2}>
+          <Text fontStyle="italic" color="gray.600" mb={[2, 0]}>
             Waiting for partner
           </Text>
         )}
 
         {/* Individual Team Members */}
-        <Stack spacing={4}>
+        <VStack spacing={[2, 4]} width="100%">
           {team.teamPlayers.map((player, index) => (
-            <LeaderboardItem key={player.playerId} info={player} ranking={index + 1} />
+            <LeaderboardItem
+              key={player.playerId}
+              info={player}
+              ranking={index + 1}
+            />
           ))}
-        </Stack>
-      </Stack>
+        </VStack>
+      </VStack>
     </Card>
   );
 }
@@ -244,42 +264,54 @@ function LeaderboardItem({
       variant="outline"
       boxShadow={"md"}
       width="100%"
-      minWidth="400px"
-      key={info.playerId}
-      sx={{ backgroundColor: info.alive ? "white" : info.safe ? "green.200" : "red.200" }}
+      padding={[2, 4]}
+      bg={info.alive ? "white" : info.safe ? "green.200" : "red.200"}
     >
-      <HStack padding={4} justifyContent="space-between" position="relative">
-        <HStack>
+      <Flex
+        direction={["column", "row"]}
+        alignItems={["flex-start", "center"]}
+        justifyContent="space-between"
+        width="100%"
+        position="relative"
+      >
+        <HStack spacing={[2, 4]} alignItems="center">
           <Avatar name={info.name} />
-          <Stack>
-            <Text sx={info.alive || info.safe ? {} : { textDecoration: "line-through" }}>
+          <VStack alignItems="flex-start" spacing={[0, 1]} width={["100%", "auto"]}>
+            <Text
+              fontSize={["sm", "md"]}
+              sx={info.alive || info.safe ? {} : { textDecoration: "line-through" }}
+              isTruncated
+              maxWidth={["100%", "auto"]}
+            >
               {ranking}: {info.name}
             </Text>
-            <Box mt="-4">
-              <Text as="span" fontWeight="bold">
+            <Flex flexWrap="wrap" alignItems="center">
+              <Text as="span" fontWeight="bold" fontSize={["sm", "md"]}>
                 Splash Points:
               </Text>
-              <Text as="span"> {info.kills}</Text>
-            </Box>
+              <Text as="span" ml={1} fontSize={["sm", "md"]}>
+                {info.kills}
+              </Text>
+            </Flex>
             {!info.alive && !info.safe && (
-              <Text>Splashed by {info.killedBy ?? "a mysterious whale"}</Text>
+              <Text fontSize={["sm", "md"]} color="gray.700">
+                Splashed by {info.killedBy ?? "a mysterious whale"}
+              </Text>
             )}
-          </Stack>
+          </VStack>
         </HStack>
         {info.safe && (
           <Badge
             colorScheme="green"
-            position="absolute"
-            top="2"
-            right="2"
             borderRadius="full"
-            px="2"
-            fontSize="0.8em"
+            px={2}
+            fontSize={["0.7em", "0.8em"]}
+            mt={[2, 0]}
           >
             Safe
           </Badge>
         )}
-      </HStack>
+      </Flex>
     </Card>
   );
 }

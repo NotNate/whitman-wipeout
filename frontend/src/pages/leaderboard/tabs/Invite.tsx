@@ -1,5 +1,19 @@
 import { useEffect, useState, useCallback } from "react";
-import { Avatar, Badge, Button, Card, Box, HStack, Stack, Text, Flex, Spinner, useToast } from "@chakra-ui/react";
+import { 
+  Avatar, 
+  Badge, 
+  Button, 
+  Card, 
+  Box, 
+  HStack, 
+  Stack, 
+  Text, 
+  Flex, 
+  Spinner, 
+  useToast, 
+  VStack, 
+  useBreakpointValue 
+} from "@chakra-ui/react";
 import { 
   inviteTeam, 
   getInvites, 
@@ -56,11 +70,17 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
       setInvitedBy(invitedByList); // Already strings
     } catch (error) {
       console.error('Failed to load invite data:', error);
-      // Optionally, handle error state here (e.g., show a toast notification)
+      toast({
+        title: "Error",
+        description: "Failed to load invite data.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     } finally {
       setLoading(false);
     }
-  }, [gameInfo.gameId]);
+  }, [gameInfo.gameId, toast]);
 
   // Load data on component mount and when gameId changes
   useEffect(() => {
@@ -90,7 +110,6 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
       });
     }
   };
-
 
   // Handler for accepting an invite
   const handleAccept = async (inviterUserId: string) => {
@@ -152,8 +171,8 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
   // If user has a partner, display the message
   if (hasPartner) {
     return (
-      <Flex align="center" justify="center" height="100vh">
-        <Text fontSize="2xl" fontWeight="bold">
+      <Flex align="center" justify="center" height="100vh" px={4}>
+        <Text fontSize={["lg", "2xl"]} fontWeight="bold" textAlign="center">
           You already have a partner: {partnerName}
         </Text>
       </Flex>
@@ -162,24 +181,26 @@ function Invite({ gameInfo }: { gameInfo: GameInfo }) {
 
   // Else, display the invite list
   return (
-    <Stack alignItems="center" width="100%" padding={4}>
-      <Text fontSize="2xl" fontWeight="bold">Invite Players</Text>
+    <VStack align="center" width="100%" padding={[2, 4]} spacing={[4, 6]}>
+      <Text fontSize={["xl", "2xl"]} fontWeight="bold">Invite Players</Text>
       {players.length === 0 ? (
         <Text>No players available to invite.</Text>
       ) : (
-        players.map((player) => (
-          <InviteItem
-            key={player.playerId}
-            player={player}
-            invites={invites}
-            invitedBy={invitedBy}
-            onInvite={handleInvite}
-            onAccept={handleAccept}
-            onReject={handleReject}
-          />
-        ))
+        <VStack align="center" width="100%" spacing={[4, 6]}>
+          {players.map((player) => (
+            <InviteItem
+              key={player.playerId}
+              player={player}
+              invites={invites}
+              invitedBy={invitedBy}
+              onInvite={handleInvite}
+              onAccept={handleAccept}
+              onReject={handleReject}
+            />
+          ))}
+        </VStack>
       )}
-    </Stack>
+    </VStack>
   );
 }
 
@@ -205,6 +226,11 @@ function InviteItem({
   
   // Determine if the current user has already invited this player
   const isAlreadyInvited = invites.includes(player.userId);
+
+  // Determine the layout direction based on screen size
+  const buttonStackDirection = useBreakpointValue({ base: "column", md: "row" });
+  const buttonSpacing = useBreakpointValue({ base: 2, md: 4 });
+  const buttonWidth = useBreakpointValue({ base: "100%", md: "auto" });
 
   const handleInviteClick = async () => {
     setLoading(true);
@@ -246,20 +272,35 @@ function InviteItem({
     <Card
       variant="outline"
       boxShadow="lg"
-      width="70%"
-      minWidth="400px"
+      width={["95%", "70%"]}
+      maxW="600px"
       bg="gray.100"
+      borderRadius="md"
+      p={[3, 4]}
     >
-      <HStack padding={4} justifyContent="space-between">
-        <HStack>
+      <Flex
+        direction={["column", "row"]}
+        align={["flex-start", "center"]}
+        justify="space-between"
+      >
+        <HStack spacing={[3, 4]} align="center" mb={[4, 0]}>
           <Avatar name={player.name} />
-          <Stack>
-            <Text fontWeight="bold">{player.name}</Text>
+          <VStack align="flex-start" spacing={[0, 1]} width={["100%", "auto"]}>
+            <Text 
+              fontWeight="bold" 
+              fontSize={["md", "lg"]} 
+              isTruncated 
+              maxW={["150px", "auto"]}
+            >
+              {player.name}
+            </Text>
             {/* Optionally, display additional info like kills, status, etc. */}
             {(isAlreadyInvited || isInvitedByThisPlayer) && (
-              <Badge colorScheme="blue">Already Invited</Badge>
+              <Badge colorScheme="blue" fontSize={["0.7em", "0.8em"]}>
+                Already Invited
+              </Badge>
             )}
-          </Stack>
+          </VStack>
         </HStack>
         {!isInvitedByThisPlayer ? (
           <Button
@@ -268,17 +309,23 @@ function InviteItem({
             isLoading={loading}
             colorScheme="blue"
             variant="solid"
+            width={buttonWidth}
           >
             {isAlreadyInvited ? "Invited" : "Invite"}
           </Button>
         ) : (
-          <Flex gap={2}>
+          <Stack 
+            direction={buttonStackDirection} 
+            spacing={buttonSpacing} 
+            width={["100%", "auto"]}
+          >
             <MultiButton
               onActivate={handleAcceptClick}
               clicksRequired={5}
               colorScheme="green"
               variant="solid"
               isLoading={loading}
+              width={buttonWidth}
             >
               Accept
             </MultiButton>
@@ -288,12 +335,13 @@ function InviteItem({
               colorScheme="red"
               variant="solid"
               isLoading={loading}
+              width={buttonWidth}
             >
               Reject
             </MultiButton>
-          </Flex>
+          </Stack>
         )}
-      </HStack>
+      </Flex>
     </Card>
   );
 }
