@@ -107,15 +107,20 @@ export class PlayerService {
     return query[0];
   }
 
-  async findByGameAndStatus(
-    gameId: MongoId,
-    status: PlayerStatus = PlayerStatus.ALIVE,
-  ): Promise<Player[]> {
-    return await this.model.find({ gameId: gameId, status }).exec();
-  }
-
+  /**
+   * Retrieve all players associated with a specific game.
+   * @param gameId The unique ID of the game.
+   * @returns A promise that resolves to an array of Player objects.
+   */
   async findByGame(gameId: MongoId): Promise<Player[]> {
     return await this.model.find({ gameId: gameId }).exec();
+  }
+
+  async findByGameAndStatus(
+    gameId: MongoId,
+    statuses: PlayerStatus[] = [PlayerStatus.ALIVE],
+  ): Promise<Player[]> {
+    return await this.model.find({ gameId: gameId, status: { $in: statuses } }).exec();
   }
 
     /**
