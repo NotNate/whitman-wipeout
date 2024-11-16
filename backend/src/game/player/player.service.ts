@@ -109,13 +109,9 @@ export class PlayerService {
 
   async findByGameAndStatus(
     gameId: MongoId,
-    status: PlayerStatus = PlayerStatus.ALIVE,
+    statuses: PlayerStatus[] = [PlayerStatus.ALIVE],
   ): Promise<Player[]> {
-    return await this.model.find({ gameId: gameId, status }).exec();
-  }
-
-  async findByGame(gameId: MongoId): Promise<Player[]> {
-    return await this.model.find({ gameId: gameId }).exec();
+    return await this.model.find({ gameId: gameId, status: { $in: statuses } }).exec();
   }
 
     /**

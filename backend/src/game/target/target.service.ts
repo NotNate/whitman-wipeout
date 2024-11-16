@@ -131,80 +131,89 @@ export class TargetService {
    */
   async matchPlayers(userId: MongoId, gameId: MongoId) {
     const game = await this.gme.findById(gameId);
-
+  
     // Only allow admins to conduct this action
     const role = await this.plyr.getRole(gameId, userId);
     if (role !== PlayerRole.ADMIN) {
-        throw new PlayerRoleUnauthorizedException(userId, role);
+      throw new PlayerRoleUnauthorizedException(userId, role);
     }
-
-    // Get all alive players
-    const players = await this.plyr.findByGameAndStatus(gameId);
-
-    const teams = new Map<string, string[]>(); // Map to group players into teams
-    const playersToDisqualify: string[] = []; // List to keep track of solo players
-
+  
+    // Get all players who are alive or safe
+    const players = await this.plyr.findByGameAndStatus(gameId, [
+      PlayerStatus.ALIVE,
+      PlayerStatus.SAFE,
+    ]);
+  
+    // Create a map for quick lookup of alive players
+    const playerMap = new Map<string, Player>();
+    players.forEach(player => playerMap.set(player.id.toString(), player));
+  
+    // Initialize list to hold valid teams
+    const validTeams: string[][] = [];
+    const grouped = new Set<string>();
+  
     players.forEach(player => {
-        if (!player.teamPartnerId) {
-            // Player without a partner is marked for disqualification
-            playersToDisqualify.push(player.id.toString());
+      const playerIdStr = player.id.toString();
+  
+      if (grouped.has(playerIdStr)) {
+        return; // Player already grouped
+      }
+  
+      if (player.teamPartnerId) {
+        const partnerIdStr = player.teamPartnerId.toString();
+        if (playerMap.has(partnerIdStr)) {
+          // Partner is alive, form a team of two
+          validTeams.push([playerIdStr, partnerIdStr]);
+          grouped.add(playerIdStr);
+          grouped.add(partnerIdStr);
         } else {
-            const partnerId = player.teamPartnerId.toString();
-            if (teams.has(partnerId)) {
-                teams.get(partnerId)!.push(player.id.toString());
-            } else {
-                teams.set(player.id.toString(), [player.id.toString()]);
-            }
+          // Partner is dead, treat as a single player
+          validTeams.push([playerIdStr]);
+          grouped.add(playerIdStr);
         }
+      } else {
+        // Player has no team partner, treat as a single player
+        validTeams.push([playerIdStr]);
+        grouped.add(playerIdStr);
+      }
     });
-
-    // Disqualify solo players
-    for (const playerId of playersToDisqualify) {
-        const player = await this.plyr.findById(new MongoId(playerId));
-        player.status = PlayerStatus.DISQUALIFIED;
-        await player.save();
-    }
-
-    // Filter out incomplete teams (any team with only one player left due to disqualification)
-    const validTeams = Array.from(teams.values()).filter(team => team.length === 2);
-
+  
     // Shuffle the valid teams
     const shuffledTeams = shuffle(validTeams);
-
+  
     const targetDocuments: TargetDocument[] = [];
-
+  
     // Assign each team a target team in a circular manner
     for (let i = 0; i < shuffledTeams.length; i++) {
-        const currentTeam = shuffledTeams[i];
-        const targetTeam = shuffledTeams[(i + 1) % shuffledTeams.length];
-
-        // Create target documents for each member of the current team against each member of the target team
-        for (const playerId of currentTeam) {
-            for (const targetId of targetTeam) {
-                const target = new this.model();
-                target.gameId = gameId;
-                target.playerId = new MongoId(playerId);
-                target.targetId = new MongoId(targetId);
-                targetDocuments.push(target);
-            }
+      const currentTeam = shuffledTeams[i];
+      const targetTeam = shuffledTeams[(i + 1) % shuffledTeams.length];
+  
+      // Assign each member of the current team to target each member of the target team
+      for (const playerId of currentTeam) {
+        for (const targetId of targetTeam) {
+          const target = new this.model();
+          target.gameId = gameId;
+          target.playerId = new MongoId(playerId);
+          target.targetId = new MongoId(targetId);
+          targetDocuments.push(target);
         }
+      }
     }
-
-    // Set all pending targets to expired for this game
-    await this.model
-        .find()
-        .updateMany(
-            { gameId: gameId, status: TargetStatus.PENDING },
-            { $set: { status: TargetStatus.EXPIRED } },
-        )
-        .exec();
-
+  
+    // Expire all pending targets for this game
+    await this.model.updateMany(
+      { gameId: gameId, status: TargetStatus.PENDING },
+      { $set: { status: TargetStatus.EXPIRED } }
+    ).exec();
+  
     // Insert new target assignments
     await this.model.insertMany(targetDocuments);
-
-    // Update the game status if it is not there already
-    await game.updateOne({ $set: { status: GameStatus.IN_PROGRESS } }).exec();
-}
+  
+    // Update the game status to IN_PROGRESS if not already set
+    if (game.status !== GameStatus.IN_PROGRESS) {
+      await game.updateOne({ $set: { status: GameStatus.IN_PROGRESS } }).exec();
+    }
+  }  
 
   /**
    * Kill a target player within a game.
