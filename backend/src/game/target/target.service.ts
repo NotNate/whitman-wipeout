@@ -339,13 +339,14 @@ export class TargetService {
           aliveTeams.add(teamId);
         }
 
-        if (aliveTeams.size === 1) {
-          // The killing team is the only team left. The game is over.
-          game.status = GameStatus.FINISHED;
-          await game.save();
+        // TODO: Implement game over logic if only one team is left
+        // if (aliveTeams.size === 1) {
+        //   // The killing team is the only team left. The game is over.
+        //   game.status = GameStatus.FINISHED;
+        //   await game.save();
 
-          // Optionally, notify players or perform end-of-game logic
-        }
+        //   // Optionally, notify players or perform end-of-game logic
+        // }
       }
 
       // Now, expire all target assignments pointing to the killed team members
