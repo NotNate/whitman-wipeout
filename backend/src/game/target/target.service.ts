@@ -429,7 +429,7 @@ async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId:
     }
 
     const players: { [key: string]: Player } = {};
-    (await this.plyr.findByGame(gameId)).forEach(
+    (await this.plyr.findByGameAndStatus(gameId, [PlayerStatus.ALIVE, PlayerStatus.SAFE])).forEach(
         (player) => (players[player.id] = player)
     );
 
