@@ -21,7 +21,7 @@ import {
 } from 'utils/exceptions';
 
 // Objects
-import { TargetInfo } from 'shared/api/game/target';
+import { TargetTeamInfo } from 'shared/api/game/target';
 import { UserService } from 'user/user.service';
 import { User } from 'user/user.schema';
 
@@ -67,19 +67,17 @@ export class TargetService {
     return await this.findByGameAndPlayer(gameId, playerId);
   }
 
-  async fetchTarget(gameId: MongoId, userId: MongoId): Promise<TargetInfo> {
+  async fetchTarget(gameId: MongoId, userId: MongoId): Promise<TargetTeamInfo> {
     const player = await this.plyr.find(userId, gameId);
     const playerId = new MongoId(player.id);
 
     const game = await this.gme.findById(player.gameId);
 
     if (player.status !== PlayerStatus.ALIVE && player.status !== PlayerStatus.SAFE) {
-      // Player is no longer alive and cannot view their target
       throw new PlayerStatusNotValidException(playerId, player.status);
     }
 
     if (game.status !== GameStatus.IN_PROGRESS) {
-      // Player is no longer alive and cannot view their target
       throw new GameStatusNotValidException(player.gameId, game.status);
     }
 
@@ -87,11 +85,29 @@ export class TargetService {
     const targetPlayer = await this.plyr.findById(target.targetId);
     const targetUser = await this.usr.findById(targetPlayer.userId);
 
+    // Fetch the target player's partner
+    let targetPartnerInfo = null;
+    if (targetPlayer.teamPartnerId) {
+      const targetPartner = await this.plyr.findById(targetPlayer.teamPartnerId);
+      const targetPartnerUser = await this.usr.findById(targetPartner.userId);
+      targetPartnerInfo = {
+        name: `${targetPartnerUser.firstName} ${targetPartnerUser.surname}`,
+        safe: targetPartner.status === PlayerStatus.SAFE,
+        status: targetPartner.status,
+      };
+    }
+
     return {
-      name: `${targetUser.firstName} ${targetUser.surname}`,
-      safe: targetPlayer.status === PlayerStatus.SAFE
+      members: [
+        {
+          name: `${targetUser.firstName} ${targetUser.surname}`,
+          safe: targetPlayer.status === PlayerStatus.SAFE,
+          status: targetPlayer.status,
+        },
+        ...(targetPartnerInfo ? [targetPartnerInfo] : []),
+      ],
     };
-}
+  }
 
   /**
    * Create targets for all alive players in a game. Expire all pending targets,

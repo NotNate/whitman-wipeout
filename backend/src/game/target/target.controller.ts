@@ -5,6 +5,7 @@ import { getUserIdFromRequest } from 'utils/request';
 import { Request } from 'express';
 import { QueryRequired } from 'utils/decorators';
 import { MongoId } from 'utils/mongo';
+import { TargetTeamInfo } from 'shared/api/game/target';
 
 @Controller('game/target')
 export class TargetController {
@@ -15,7 +16,7 @@ export class TargetController {
   async fetchTarget(
     @Req() req: Request,
     @QueryRequired('gameId') gameIdQuery: string,
-  ) {
+  ): Promise<TargetTeamInfo> {
     const userId = getUserIdFromRequest(req);
     const gameId = new MongoId(gameIdQuery);
     const data = await this.trgt.fetchTarget(gameId, userId);

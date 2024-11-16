@@ -9,3 +9,11 @@ export type DetailedTargetInfo = {
   targetId: string;
   status: string;
 };
+
+export type TargetTeamInfo = {
+  members: {
+    name: string;
+    safe: boolean;
+    status: string;
+  }[];
+};

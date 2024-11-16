@@ -40,13 +40,11 @@ import Invite from "./tabs/Invite";
  * tabs.
  */
 function Leaderboard() {
-  // All leaderboard players
-
   const navigate = useNavigate();
   const gameInfo = useRecoilValue(gameInfoAtom);
 
   useEffect(() => {
-    // Only use this is the user ID is not null
+    // Only use this if the user ID is not null
     // TODO: Remove this so unregistered users can view the leaderboard
     if (gameInfo === undefined || gameInfo.role === "NONE") {
       navigate("/app/register");
@@ -73,11 +71,11 @@ function Leaderboard() {
         <TabPanel>
           <AllTargets />
         </TabPanel>
-          <TabPanel>
+        <TabPanel>
           <Stack alignItems="center" width="100%">
             <SafetyList />
           </Stack>
-          </TabPanel>
+        </TabPanel>
       </TabPanels>
     </Tabs>
   );
@@ -108,7 +106,7 @@ function Leaderboard() {
     </Tabs>
   );
 
-  // NOTE: There are two different sets of tabs (one for admins and one for )
+  // NOTE: There are two different sets of tabs (one for admins and one for players)
   return <Box m={4}>{gameInfo?.role === "ADMIN" ? adminTabs : playerTabs}</Box>;
 }
 
@@ -118,9 +116,10 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
   useEffect(() => {
     /* Grab user information on the leaderboard, make sure alive players are
     listed first, and then sort by kills. */
-    const fetch = async () => {
+    const fetchData = async () => {
+      const leaderboardData = await fetchLeaderboard();
       setData(
-        (await fetchLeaderboard()).sort((a, b) => {
+        leaderboardData.sort((a, b) => {
           if (a.alive === b.alive) {
             return b.kills - a.kills;
           } else {
@@ -130,18 +129,106 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
         })
       );
     };
-    fetch();
+    fetchData();
   }, []);
+
+  // Group players by team
+  const groupByTeams = (players: LeaderboardPlayerInfo[]) => {
+    const teamsMap: { [key: string]: LeaderboardPlayerInfo[] } = {};
+
+    players.forEach((player) => {
+      if (player.teamPartnerId) {
+        // Create a unique team key by sorting playerId and teamPartnerId
+        const teamIds = [player.playerId, player.teamPartnerId].sort();
+        const teamKey = teamIds.join("-");
+
+        if (!teamsMap[teamKey]) {
+          teamsMap[teamKey] = [];
+        }
+        teamsMap[teamKey].push(player);
+      } else {
+        // Solo player
+        const teamKey = player.playerId; // unique key for solo player
+        if (!teamsMap[teamKey]) {
+          teamsMap[teamKey] = [];
+        }
+        teamsMap[teamKey].push(player);
+      }
+    });
+
+    // Convert the map to an array of teams
+    const teams = Object.values(teamsMap).filter((team) => team.length > 0);
+    return teams;
+  };
+
+  // Prepare team data
+  const teams = groupByTeams(data).map((team) => {
+    const teamKills = team.reduce((sum, player) => sum + player.kills, 0);
+    return { teamPlayers: team, teamKills };
+  });
+
+  // Sort teams by teamKills descending
+  const sortedTeams = teams.sort((a, b) => b.teamKills - a.teamKills);
 
   return (
     <Stack alignItems="center" width="100%">
       {gameInfo && <EventCountdown gameInfo={gameInfo} />}
       <Stack padding={4} alignItems="center" width="100%">
-        {data.map((info, index) => (
-          <LeaderboardItem info={info} ranking={index + 1} />
+        {sortedTeams.map((team, index) => (
+          <TeamLeaderboardItem
+            key={team.teamPlayers.map((p) => p.playerId).join("-")}
+            team={team}
+            ranking={index + 1}
+          />
         ))}
       </Stack>
     </Stack>
+  );
+}
+
+function TeamLeaderboardItem({
+  team,
+  ranking,
+}: {
+  team: { teamPlayers: LeaderboardPlayerInfo[]; teamKills: number };
+  ranking: number;
+}) {
+  const isSolo = team.teamPlayers.length === 1;
+
+  return (
+    <Card
+      variant="outline"
+      boxShadow={"lg"}
+      width="80%"
+      minWidth="500px"
+      padding={4}
+      mb={4}
+      sx={{ backgroundColor: "gray.50" }}
+    >
+      <Stack width="100%">
+        {/* Team Header */}
+        <HStack justifyContent="space-between" mb={4}>
+          <Text fontSize="lg" fontWeight="bold">
+            {ranking}: Team Splash Points: {team.teamKills}
+          </Text>
+          {/* Optional: Add a team badge or other team-level indicators here */}
+        </HStack>
+
+        {/* Solo Player Indicator */}
+        {isSolo && (
+          <Text fontStyle="italic" color="gray.600" mb={2}>
+            Waiting for partner
+          </Text>
+        )}
+
+        {/* Individual Team Members */}
+        <Stack spacing={4}>
+          {team.teamPlayers.map((player, index) => (
+            <LeaderboardItem key={player.playerId} info={player} ranking={index + 1} />
+          ))}
+        </Stack>
+      </Stack>
+    </Card>
   );
 }
 
@@ -155,17 +242,17 @@ function LeaderboardItem({
   return (
     <Card
       variant="outline"
-      boxShadow={"lg"}
-      width="70%"
+      boxShadow={"md"}
+      width="100%"
       minWidth="400px"
       key={info.playerId}
       sx={{ backgroundColor: info.alive ? "white" : info.safe ? "green.200" : "red.200" }}
     >
-      <HStack padding={4} justifyContent="space-between">
+      <HStack padding={4} justifyContent="space-between" position="relative">
         <HStack>
           <Avatar name={info.name} />
           <Stack>
-            <Text sx={info.alive || info.safe ? {} : { textDecorationLine: "line-through" }}>
+            <Text sx={info.alive || info.safe ? {} : { textDecoration: "line-through" }}>
               {ranking}: {info.name}
             </Text>
             <Box mt="-4">
@@ -174,27 +261,27 @@ function LeaderboardItem({
               </Text>
               <Text as="span"> {info.kills}</Text>
             </Box>
-            {(!info.alive && !info.safe) && (
-              <Text>Eliminated by {info.killedBy ?? "a magical force"}</Text>
+            {!info.alive && !info.safe && (
+              <Text>Splashed by {info.killedBy ?? "a mysterious whale"}</Text>
             )}
           </Stack>
         </HStack>
-      {info.safe && (
-        <Badge
-          colorScheme="green"
-          position="absolute"
-          top="2"
-          right="2"
-          borderRadius="full"
-          px="2"
-          fontSize="0.8em"
-        >
-          Safe
-        </Badge>
-      )}
+        {info.safe && (
+          <Badge
+            colorScheme="green"
+            position="absolute"
+            top="2"
+            right="2"
+            borderRadius="full"
+            px="2"
+            fontSize="0.8em"
+          >
+            Safe
+          </Badge>
+        )}
       </HStack>
     </Card>
-  );  
+  );
 }
 
 export default Leaderboard;

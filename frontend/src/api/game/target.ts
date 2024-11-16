@@ -1,16 +1,16 @@
-import { DetailedTargetInfo, TargetInfo } from "shared/api/game/target";
+import { DetailedTargetInfo, TargetTeamInfo } from "shared/api/game/target";
 import { authGet, authPost } from "../../utils/http";
 import { LeaderboardPlayerInfo } from "shared/api/game/player";
 import { getRecoil } from "recoil-nexus";
 import { gameInfoAtom } from "global/user-state";
 
 /** Fetch current target of the active game. */
-export const fetchTarget = async (): Promise<TargetInfo> => {
+export const fetchTarget = async (): Promise<TargetTeamInfo> => {
   const info = getRecoil(gameInfoAtom);
-  if (!info) throw new Error();
+  if (!info) throw new Error("Game information is missing.");
 
   return (
-    await authGet<TargetInfo>(`/game/target/fetchTarget?gameId=${info.gameId}`)
+    await authGet<TargetTeamInfo>(`/game/target/fetchTarget?gameId=${info.gameId}`)
   ).data;
 };
 
