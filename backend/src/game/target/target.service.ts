@@ -57,7 +57,7 @@ export class TargetService {
       .exec();
   
     if (!query || query.length === 0) {
-      throw new TargetNotFoundException(`No pending target found for player ${playerId} in game ${gameId}`);
+      throw new TargetNotFoundException(playerId);
     }
     return query[0];
   }  
@@ -90,7 +90,6 @@ export class TargetService {
         // Return an empty or special response indicating no target
         return {
           members: [],
-          message: 'No target available at the moment.',
         };
       } else {
         throw e; // Re-throw other exceptions
@@ -356,13 +355,13 @@ export class TargetService {
           aliveTeams.add(teamId);
         }
   
-        if (aliveTeams.size === 1) {
-          // The killing team is the only team left. The game is over.
-          game.status = GameStatus.FINISHED;
-          await game.save();
+        // if (aliveTeams.size === 1) {
+        //   // The killing team is the only team left. The game is over.
+        //   game.status = GameStatus.FINISHED;
+        //   await game.save();
   
-          // Optionally, notify players or perform end-of-game logic
-        }
+        //   // Optionally, notify players or perform end-of-game logic
+        // }
       }
   
       await this.model.updateMany(
