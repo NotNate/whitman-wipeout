@@ -107,6 +107,14 @@ export class PlayerService {
     return query[0];
   }
 
+  async findByIds(playerIds: MongoId[]): Promise<Player[]> {
+    const query = await this.model.find({ _id: { $in: playerIds } }).exec();
+    if (!query || query.length === 0) {
+      throw new PlayerNotFoundException(playerIds.toString());
+    }
+    return query;
+  }
+
   /**
    * Retrieve all players associated with a specific game.
    * @param gameId The unique ID of the game.

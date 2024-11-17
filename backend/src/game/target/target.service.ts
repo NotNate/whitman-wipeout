@@ -312,7 +312,7 @@ export class TargetService {
       const targetIds = Array.from(targetIdsSet).map(id => new MongoId(id));
 
       // 13. Fetch alive target players
-      const aliveTargetPlayers = await Promise.all(targetIds.map(id => this.plyr.findById(id)));
+      const aliveTargetPlayers = await this.plyr.findByIds(targetIds);
       const aliveTargetIds = aliveTargetPlayers
         .filter(p => p.status === PlayerStatus.ALIVE || p.status === PlayerStatus.SAFE)
         .map(p => p.id);
@@ -323,17 +323,21 @@ export class TargetService {
         killingTeamIds.push(playerPartnerId);
       }
 
-      // 15. Assign new target assignments to the killing team members
+      // 15. Fetch alive members of the killer's team
+      const killingTeamMembers = await this.plyr.findByIds(killingTeamIds);
+      const aliveKillingTeamMembers = killingTeamMembers.filter(p => p.status === PlayerStatus.ALIVE || p.status === PlayerStatus.SAFE);
+
+      // 16. Assign new target assignments to the killing team members
       const newTargetAssignments: TargetDocument[] = [];
 
-      for (const killerId of killingTeamIds) {
+      for (const killer of aliveKillingTeamMembers) {
         for (const targetId of aliveTargetIds) {
           // Prevent a player from targeting themselves
-          if (killerId.equals(targetId)) continue;
+          if (killer.id.equals(targetId)) continue;
 
           const newTarget = new this.model({
             gameId: gameId,
-            playerId: killerId,
+            playerId: killer.id,
             targetId: targetId,
             status: TargetStatus.PENDING,
           });
@@ -341,12 +345,12 @@ export class TargetService {
         }
       }
 
-      // 16. Insert new target assignments
+      // 17. Insert new target assignments
       if (newTargetAssignments.length > 0) {
         await this.model.insertMany(newTargetAssignments);
       }
 
-      // 17. Expire all target assignments of the eliminated team
+      // 18. Expire all target assignments of the eliminated team
       await this.model.updateMany(
         {
           gameId: gameId,
@@ -356,15 +360,21 @@ export class TargetService {
         { $set: { status: TargetStatus.EXPIRED } }
       ).exec();
     } else {
-      // 18. If the entire team is not eliminated, expire target assignments pointing to the killed player
+      // 19. If the entire team is not eliminated, expire relevant target assignments
 
-      // 18.a. Expire target assignments where targetId is killed.id and status is PENDING
+      // 19.a. Expire target assignments where targetId is killed.id (A to C/D, B to C/D)
       await this.model.updateMany(
         { gameId: gameId, targetId: killed.id, status: TargetStatus.PENDING },
         { $set: { status: TargetStatus.EXPIRED } }
       ).exec();
 
-      // 18.b. If the killer has a partner, expire their target assignments pointing to the killed player
+      // 19.b. Expire target assignments where playerId is killed.id (C's targets to E/F)
+      await this.model.updateMany(
+        { gameId: gameId, playerId: killed.id, status: TargetStatus.PENDING },
+        { $set: { status: TargetStatus.EXPIRED } }
+      ).exec();
+
+      // 19.c. Expire target assignments where playerId is killer's partner and targetId is killed.id (B to C/D)
       if (playerPartnerId) {
         await this.model.updateMany(
           { gameId: gameId, playerId: playerPartnerId, targetId: killed.id, status: TargetStatus.PENDING },
@@ -373,7 +383,7 @@ export class TargetService {
       }
     }
 
-    // 19. TODO: Implement game finishing logic if needed
+    // 20. TODO: Implement game finishing logic if needed
   }
 
 // Helper function to find a specific target by game, player, and target
