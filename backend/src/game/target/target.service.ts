@@ -355,7 +355,7 @@ export class TargetService {
         {
           gameId: gameId,
           playerId: { $in: eliminatedTeamIds },
-          status: { $in: [TargetStatus.PENDING, TargetStatus.COMPLETE] },
+          status: TargetStatus.PENDING,
         },
         { $set: { status: TargetStatus.EXPIRED } }
       ).exec();
@@ -367,7 +367,7 @@ export class TargetService {
             gameId: gameId,
             playerId: playerPartnerId,
             targetId: { $in: eliminatedTeamIds },
-            status: { $in: [TargetStatus.PENDING, TargetStatus.COMPLETE] },
+            status: TargetStatus.PENDING,
           },
           { $set: { status: TargetStatus.EXPIRED } }
         ).exec();
