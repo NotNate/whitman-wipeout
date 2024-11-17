@@ -312,7 +312,7 @@ export class TargetService {
       const targetIds = Array.from(targetIdsSet).map(id => new MongoId(id));
 
       // 13. Fetch alive target players
-      const aliveTargetPlayers = await this.plyr.findByIds(targetIds);
+      const aliveTargetPlayers = await Promise.all(targetIds.map(id => this.plyr.findById(id)));
       const aliveTargetIds = aliveTargetPlayers
         .filter(p => p.status === PlayerStatus.ALIVE || p.status === PlayerStatus.SAFE)
         .map(p => p.id);
