@@ -263,7 +263,7 @@ export class TargetService {
     const playerPartnerId = player.teamPartnerId;
 
     // 6. Ensure both player and killed target are ALIVE
-    if (player.status !== PlayerStatus.ALIVE) {
+    if (player.status !== PlayerStatus.ALIVE && player.status !== PlayerStatus.SAFE) {
       throw new PlayerStatusNotValidException(playerId, player.status);
     }
     if (killed.status !== PlayerStatus.ALIVE) {
