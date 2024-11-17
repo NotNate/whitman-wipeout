@@ -110,7 +110,7 @@ export class PlayerService {
   async findByIds(playerIds: MongoId[]): Promise<Player[]> {
     const query = await this.model.find({ _id: { $in: playerIds } }).exec();
     if (!query || query.length === 0) {
-      throw new PlayerNotFoundException(playerIds.map(id => id.toString()).join(', '));
+      throw new PlayerNotFoundException(playerIds[0]); // TODO: Fix this lol
     }
     return query;
   }
