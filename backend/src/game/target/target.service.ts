@@ -278,119 +278,137 @@ export class TargetService {
     target.status = TargetStatus.COMPLETE;
     await target.save(); // Save the updated target assignment
 
-    // Check if the entire opposing team is eliminated
-    let isEntireTeamEliminated = false;
-    if (killedPartnerId) {
-      const killedPartner = await this.plyr.findById(killedPartnerId);
-      if (killedPartner && killedPartner.status === PlayerStatus.KILLED) {
-        isEntireTeamEliminated = true;
+    // Identify the killer's partner (if any and alive)
+    let killerPartner: Player | null = null;
+    if (playerPartnerId) {
+      killerPartner = await this.plyr.findById(playerPartnerId);
+      if (killerPartner && killerPartner.status !== PlayerStatus.ALIVE) {
+        // If the killer's partner is not alive, set to null
+        killerPartner = null;
       }
     }
 
-    if (isEntireTeamEliminated) {
-      // Identify the eliminated team
-      const eliminatedTeamIds: MongoId[] = [killed.id];
-      if (killedPartnerId) {
-        eliminatedTeamIds.push(killedPartnerId);
-      }
-
-      // Fetch the eliminated team's current target
-      const eliminatedTeamTarget = await this.model.findOne({
-        gameId: gameId,
-        playerId: { $in: eliminatedTeamIds },
-        status: TargetStatus.PENDING,
-      }).exec();
-
-      const killingTeamIds: MongoId[] = [playerId];
-      if (playerPartnerId) {
-        killingTeamIds.push(playerPartnerId);
-      }
-
-      const newTargetAssignments: TargetDocument[] = [];
-
-      if (eliminatedTeamTarget) {
-        const newTargetId = eliminatedTeamTarget.targetId;
-
-        // Assign the killing team to target the eliminated team's target
-        for (const killerId of killingTeamIds) {
-          // Create new target assignment
-          const newTarget = new this.model({
-            gameId: gameId,
-            playerId: killerId,
-            targetId: newTargetId,
-            status: TargetStatus.PENDING,
-          });
-          newTargetAssignments.push(newTarget);
-        }
-
-        // Insert new target assignments first
-        if (newTargetAssignments.length > 0) {
-          await this.model.insertMany(newTargetAssignments);
-        }
-      } else {
-        // Handle the case where the eliminated team has no target
-        // This could mean the killing team is now the last team
-        // Check if the killing team is the last team remaining
-        const alivePlayers = await this.plyr.findByGameAndStatus(gameId, [PlayerStatus.ALIVE, PlayerStatus.SAFE]);
-
-        const aliveTeams = new Set<string>();
-        for (const p of alivePlayers) {
-          const teamId = p.teamPartnerId ? p.teamPartnerId.toString() : p.id.toString();
-          aliveTeams.add(teamId);
-        }
-
-        // TODO: Implement game over logic if only one team is left
-        // if (aliveTeams.size === 1) {
-        //   // The killing team is the only team left. The game is over.
-        //   game.status = GameStatus.FINISHED;
-        //   await game.save();
-
-        //   // Optionally, notify players or perform end-of-game logic
-        // }
-      }
-
-      // Now, expire all target assignments pointing to the killed team members
-      await this.model.updateMany(
-        {
-          gameId: gameId,
-          playerId: { $in: eliminatedTeamIds },
-          status: { $in: [TargetStatus.PENDING, TargetStatus.COMPLETE] },
-        },
-        { $set: { status: TargetStatus.EXPIRED } }
-      ).exec();
-    } else {
-      // If the entire team is not eliminated, expire all target assignments pointing to the killed player
+    // Begin Transaction (Optional but Recommended)
+    const session = await this.model.startSession();
+    session.startTransaction();
+    try {
+      // 1. Expire all target assignments pointing to the killed player
       await this.model.updateMany(
         { targetId: killed.id, status: TargetStatus.PENDING },
-        { $set: { status: TargetStatus.EXPIRED } }
+        { $set: { status: TargetStatus.EXPIRED } },
+        { session }
       ).exec();
 
-      // Expire all the target assignments of the killed player
+      // 2. Expire all target assignments of the killed player
       await this.model.updateMany(
         { playerId: killed.id, status: TargetStatus.PENDING },
-        { $set: { status: TargetStatus.EXPIRED } }
+        { $set: { status: TargetStatus.EXPIRED } },
+        { session }
       ).exec();
 
-      // Expire the partner's target on the killed player, if applicable
-      if (killedPartnerId) {
-        const partnerTarget = await this.findByGameAndPlayerAndTarget(gameId, killedPartnerId, killedId);
-        if (partnerTarget) {
-          partnerTarget.status = TargetStatus.EXPIRED;
-          await partnerTarget.save(); // Save the expired partner target
-        }
+      // 3. Expire the killer's partner's target on the killed player, if applicable
+      if (killerPartner) {
+        await this.model.updateMany(
+          { playerId: killerPartner.id, targetId: killed.id, status: TargetStatus.PENDING },
+          { $set: { status: TargetStatus.EXPIRED } },
+          { session }
+        ).exec();
       }
+
+      // 4. Assign new target assignments from the killer and their partner to E and F (only alive)
+      // Fetch all alive players excluding the killer's team
+      const alivePlayers = await this.plyr.findByGameAndStatus(gameId, [
+        PlayerStatus.ALIVE,
+        PlayerStatus.SAFE,
+      ]);
+
+      // Determine the killer's team to exclude them from being targeted by their own team
+      const killerTeamIds = new Set<string>();
+      killerTeamIds.add(player.id.toString());
+      if (playerPartnerId && killerPartner) {
+        killerTeamIds.add(killerPartner.id.toString());
+      }
+
+      // Identify potential new targets (players not in the killer's team and are alive)
+      const potentialTargets: Player[] = alivePlayers.filter(p => !killerTeamIds.has(p.id.toString()));
+
+      // Prepare new target documents
+      const newTargetDocuments: TargetDocument[] = [];
+
+      // Helper function to assign targets
+      const assignTargets = (assigner: Player, targets: Player[]) => {
+        targets.forEach(targetPlayer => {
+          const targetDoc = new this.model({
+            gameId: gameId,
+            playerId: assigner.id,
+            targetId: targetPlayer.id,
+            status: TargetStatus.PENDING,
+          });
+          newTargetDocuments.push(targetDoc);
+        });
+      };
+
+      // Assign targets from the killer
+      assignTargets(player, potentialTargets);
+
+      // Assign targets from the killer's partner, if exists
+      if (killerPartner) {
+        assignTargets(killerPartner, potentialTargets);
+      }
+
+      // Insert new target assignments
+      if (newTargetDocuments.length > 0) {
+        await this.model.insertMany(newTargetDocuments, { session });
+      }
+
+      // 5. Commit Transaction
+      await session.commitTransaction();
+      session.endSession();
+
+      // // 6. Optionally, check if the game should be marked as FINISHED
+      // // For example, if only one team remains
+      // const remainingAlivePlayers = await this.plyr.findByGameAndStatus(gameId, [
+      //   PlayerStatus.ALIVE,
+      //   PlayerStatus.SAFE,
+      // ]);
+
+      // // Group remaining players into teams
+      // const teamMap = new Map<string, Set<string>>(); // Map of teamLeaderId -> Set of playerIds
+      // remainingAlivePlayers.forEach(p => {
+      //   const teamLeaderId = p.teamPartnerId ? p.teamPartnerId.toString() : p.id.toString();
+      //   if (!teamMap.has(teamLeaderId)) {
+      //     teamMap.set(teamLeaderId, new Set<string>());
+      //   }
+      //   teamMap.get(teamLeaderId)!.add(p.id.toString());
+      // });
+
+      // // If only one team remains, mark the game as FINISHED
+      // if (teamMap.size === 1) {
+      //   game.status = GameStatus.FINISHED;
+      //   await game.save();
+        
+      //   // Optionally, notify players or perform end-of-game logic here
+      // }
+
+    } catch (error) {
+      // Abort Transaction in case of errors
+      await session.abortTransaction();
+      session.endSession();
+      throw error; // Re-throw the error after aborting
     }
   }
 
-// Helper function to find a specific target by game, player, and target
-async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId: MongoId): Promise<Target | null> {
-  return await this.model.findOne({
+  /**
+   * Helper function to find a specific target by game, player, and target
+   */
+  async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId: MongoId): Promise<Target | null> {
+    return await this.model.findOne({
       gameId: gameId,
       playerId: playerId,
       targetId: targetId,
       status: TargetStatus.PENDING,
-  }).exec();
-}
+    }).exec();
+  }
 
   /**
    * Mark the player status of someone as safe, or make the unsafe if already marked safe.
