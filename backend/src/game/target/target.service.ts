@@ -333,7 +333,7 @@ export class TargetService {
       for (const killer of aliveKillingTeamMembers) {
         for (const targetId of aliveTargetIds) {
           // Prevent a player from targeting themselves
-          if (killer.id.equals(targetId)) continue;
+          if (killer.id.toString() === targetId.toString()) continue;
 
           const newTarget = new this.model({
             gameId: gameId,
@@ -368,7 +368,7 @@ export class TargetService {
         { $set: { status: TargetStatus.EXPIRED } }
       ).exec();
 
-      // 19.b. Expire target assignments where playerId is killed.id (C's targets to E/F)
+      // 19.b. Expire killed player's own target assignments (C's targets to E/F)
       await this.model.updateMany(
         { gameId: gameId, playerId: killed.id, status: TargetStatus.PENDING },
         { $set: { status: TargetStatus.EXPIRED } }
@@ -385,6 +385,7 @@ export class TargetService {
 
     // 20. TODO: Implement game finishing logic if needed
   }
+
 
 // Helper function to find a specific target by game, player, and target
 async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId: MongoId): Promise<Target | null> {
