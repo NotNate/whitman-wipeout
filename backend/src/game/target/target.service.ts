@@ -359,6 +359,20 @@ export class TargetService {
         },
         { $set: { status: TargetStatus.EXPIRED } }
       ).exec();
+
+      // 18.b. Expire killer's partner's target assignments pointing to any member of the eliminated team
+      if (playerPartnerId) {
+        await this.model.updateMany(
+          {
+            gameId: gameId,
+            playerId: playerPartnerId,
+            targetId: { $in: eliminatedTeamIds },
+            status: { $in: [TargetStatus.PENDING, TargetStatus.COMPLETE] },
+          },
+          { $set: { status: TargetStatus.EXPIRED } }
+        ).exec();
+      }
+
     } else {
       // 19. If the entire team is not eliminated, expire relevant target assignments
 
