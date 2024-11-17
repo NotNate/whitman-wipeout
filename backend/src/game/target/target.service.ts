@@ -266,7 +266,7 @@ export class TargetService {
     if (player.status !== PlayerStatus.ALIVE && player.status !== PlayerStatus.SAFE) {
       throw new PlayerStatusNotValidException(playerId, player.status);
     }
-    if (killed.status !== PlayerStatus.ALIVE) {
+    if (killed.status !== PlayerStatus.ALIVE && player.status !== PlayerStatus.SAFE) {
       throw new PlayerStatusNotValidException(killedId, killed.status);
     }
 
