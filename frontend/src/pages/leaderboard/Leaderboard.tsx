@@ -130,8 +130,7 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
           if (a.alive === b.alive) {
             return b.kills - a.kills;
           } else {
-            if (a.alive) return -1;
-            return 1;
+            return a.alive ? -1 : 1;
           }
         })
       );
@@ -168,26 +167,23 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
     return teams;
   };
 
-  // Prepare team data with adjusted kills and alive members
+  // Prepare team data with adjusted kills and alive status
   const teams = groupByTeams(data).map((team) => {
     const teamKills = team.reduce((sum, player) => sum + player.kills, 0);
     const teamRevives = team.reduce((sum, player) => sum + player.revives, 0);
     const adjustedTeamKills = teamKills - teamRevives;
     
-    // Calculate the number of alive members
-    const aliveMembers = team.reduce((count, player) => {
-      return (player.alive || player.safe) ? count + 1 : count;
-    }, 0);
+    // Determine if the team has at least one alive member
+    const hasAliveMembers = team.some(player => player.alive || player.safe);
     
-    return { teamPlayers: team, teamKills, teamRevives, adjustedTeamKills, aliveMembers };
+    return { teamPlayers: team, teamKills, teamRevives, adjustedTeamKills, hasAliveMembers };
   });
 
-  // Sort teams primarily by adjustedTeamKills descending, then by aliveMembers descending
+  // Sort teams primarily by hasAliveMembers (true first), then by adjustedTeamKills descending
   const sortedTeams = teams.sort((a, b) => {
-    if (b.adjustedTeamKills !== a.adjustedTeamKills) {
-      return b.adjustedTeamKills - a.adjustedTeamKills;
-    }
-    return b.aliveMembers - a.aliveMembers;
+    if (a.hasAliveMembers && !b.hasAliveMembers) return -1;
+    if (!a.hasAliveMembers && b.hasAliveMembers) return 1;
+    return b.adjustedTeamKills - a.adjustedTeamKills;
   });
 
   // Determine layout direction based on screen size
@@ -218,7 +214,7 @@ function TeamLeaderboardItem({
     teamKills: number;
     teamRevives: number;
     adjustedTeamKills: number;
-    aliveMembers: number;
+    hasAliveMembers: boolean;
   };
   ranking: number;
 }) {
