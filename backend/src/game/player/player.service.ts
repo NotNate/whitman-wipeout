@@ -290,6 +290,7 @@ export class PlayerService {
         kills: killCounts[player.id] ?? 0,
         alive: player.status === PlayerStatus.ALIVE,
         safe: player.status === PlayerStatus.SAFE,
+        revives: player.revives,
         killedBy: killer,
       };
 

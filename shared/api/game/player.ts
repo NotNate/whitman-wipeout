@@ -6,6 +6,7 @@ export type LeaderboardPlayerInfo = {
   kills: number;
   alive: boolean;
   safe: boolean;
+  revives: number;
 
   // Name of the killer
   killedBy?: string;

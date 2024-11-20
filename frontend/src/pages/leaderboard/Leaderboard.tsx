@@ -130,8 +130,7 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
           if (a.alive === b.alive) {
             return b.kills - a.kills;
           } else {
-            if (a.alive) return -1;
-            return 1;
+            return a.alive ? -1 : 1;
           }
         })
       );
@@ -168,14 +167,24 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
     return teams;
   };
 
-  // Prepare team data
+  // Prepare team data with adjusted kills and alive status
   const teams = groupByTeams(data).map((team) => {
     const teamKills = team.reduce((sum, player) => sum + player.kills, 0);
-    return { teamPlayers: team, teamKills };
+    const teamRevives = team.reduce((sum, player) => sum + player.revives, 0);
+    const adjustedTeamKills = teamKills - teamRevives;
+    
+    // Determine if the team has at least one alive member
+    const hasAliveMembers = team.some(player => player.alive || player.safe);
+    
+    return { teamPlayers: team, teamKills, teamRevives, adjustedTeamKills, hasAliveMembers };
   });
 
-  // Sort teams by teamKills descending
-  const sortedTeams = teams.sort((a, b) => b.teamKills - a.teamKills);
+  // Sort teams primarily by hasAliveMembers (true first), then by adjustedTeamKills descending
+  const sortedTeams = teams.sort((a, b) => {
+    if (a.hasAliveMembers && !b.hasAliveMembers) return -1;
+    if (!a.hasAliveMembers && b.hasAliveMembers) return 1;
+    return b.adjustedTeamKills - a.adjustedTeamKills;
+  });
 
   // Determine layout direction based on screen size
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -200,7 +209,13 @@ function TeamLeaderboardItem({
   team,
   ranking,
 }: {
-  team: { teamPlayers: LeaderboardPlayerInfo[]; teamKills: number };
+  team: {
+    teamPlayers: LeaderboardPlayerInfo[];
+    teamKills: number;
+    teamRevives: number;
+    adjustedTeamKills: number;
+    hasAliveMembers: boolean;
+  };
   ranking: number;
 }) {
   const isSolo = team.teamPlayers.length === 1;
@@ -225,11 +240,10 @@ function TeamLeaderboardItem({
           width="100%"
         >
           <Text fontSize={["md", "lg"]} fontWeight="bold">
-            {ranking}: Team Splash Points: {team.teamKills}
+            {ranking}: Team Splash Points: {team.adjustedTeamKills}
           </Text>
           {/* Optional: Add a team badge or other team-level indicators here */}
         </Flex>
-
         {/* Solo Player Indicator */}
         {isSolo && (
           <Text fontStyle="italic" color="gray.600" mb={[2, 0]}>
