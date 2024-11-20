@@ -71,6 +71,12 @@ export class Player extends mongoose.Document<mongoose.Schema.Types.ObjectId> {
   invited: MongoId[];
 
   /**
+   * The amount of times the player has been revived in the game.
+   */
+  @Prop({ type: Number, default: 0 })
+  revives: number;
+
+  /**
    * The game that this user is a part of.
    */
   @Prop({ type: String, enum: PlayerStatus, default: PlayerStatus.ALIVE })

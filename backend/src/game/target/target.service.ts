@@ -552,6 +552,7 @@ async findByGameAndPlayerAndTarget(gameId: MongoId, playerId: MongoId, targetId:
         kills: killCounts[p.id] ?? 0,
         alive: p.status === PlayerStatus.ALIVE,
         safe: p.status === PlayerStatus.SAFE,
+        revives: p.revives,
         killedBy: killer ? `${killer.firstName} ${killer.surname}` : undefined,
       };
 
