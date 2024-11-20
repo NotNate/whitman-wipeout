@@ -124,7 +124,7 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
     /* Grab user information on the leaderboard, make sure alive players are
     listed first, and then sort by kills. */
     const fetchData = async () => {
-      const leaderboardData = await fetchLeaderboard(gameInfo.id); // Ensure fetchLeaderboard accepts gameId
+      const leaderboardData = await fetchLeaderboard();
       setData(
         leaderboardData.sort((a, b) => {
           if (a.alive === b.alive) {
