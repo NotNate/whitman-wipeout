@@ -136,7 +136,7 @@ function LeaderboardList({ gameInfo }: { gameInfo: GameInfo }) {
       );
     };
     fetchData();
-  }, [gameInfo.id]);
+  }, []);
 
   // Group players by team
   const groupByTeams = (players: LeaderboardPlayerInfo[]) => {
